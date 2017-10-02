@@ -1,0 +1,82 @@
+Looking at sample7
+We are expecting a boundary from 1040 to 1140 
+Reducing from 62 to 3
+(650, 0)
+Reducing from 62 to 4
+(942, 0)
+Reducing from 62 to 5
+(955, 0)
+Reducing from 62 to 6
+(988, 0)
+Reducing from 62 to 7
+(1021, 0)
+Reducing from 62 to 8
+(1041, 0.015544041450777202)
+Reducing from 62 to 9
+(1047, 0)
+Reducing from 62 to 10
+(1046, 0)
+Reducing from 62 to 11
+(1094, 0.022797927461139896)
+Reducing from 62 to 12
+(1094, 0.02383419689119171)
+Reducing from 62 to 13
+(1104, 0.027979274611398965)
+Reducing from 62 to 14
+(1110, 0.02849740932642487)
+Reducing from 62 to 15
+(1117, 0.01606217616580311)
+Reducing from 62 to 16
+(1110, 0)
+Reducing from 62 to 17
+(1109, 0)
+Reducing from 62 to 18
+(1114, 0)
+Reducing from 62 to 19
+(1111, 0)
+Reducing from 62 to 20
+(1111, 0)
+Reducing from 62 to 21
+(1113, 0)
+Reducing from 62 to 22
+(1110, 0)
+Reducing from 62 to 23
+(1135, 0)
+Reducing from 62 to 24
+(904, 0)
+Reducing from 62 to 25
+(964, 0.10207253886010363)
+Reducing from 62 to 26
+(963, 0.09378238341968911)
+Reducing from 62 to 27
+(934, 0)
+Reducing from 62 to 28
+(920, 0)
+Reducing from 62 to 29
+(922, 0)
+Reducing from 62 to 30
+(925, 0)
+Reducing from 62 to 31
+(932, 0)
+Reducing from 62 to 32
+(934, 0)
+Reducing from 62 to 33
+(938, 0)
+Reducing from 62 to 34
+(942, 0)
+Reducing from 62 to 35
+(949, 0)
+Reducing from 62 to 36
+(953, 0)
+Reducing from 62 to 37
+(956, 0)
+Reducing from 62 to 38
+(958, 0)
+Reducing from 62 to 39
+(960, 0)
+Reducing from 62 to 40
+(962, 0)
+Reducing from 62 to 41
+(962, 0)
+Reducing from 62 to 42
+(963, 0)

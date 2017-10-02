@@ -1,0 +1,13 @@
+\section{Basic Method}
+The basic Idea is that we first use SFA, then do clustering on the slow features, and then extract boundary points
+\subsection{Slow Feature Analysis}
+First you whiten the data, then you make temporal difference vectors, then do PCA take k least significant features, those are your feature vectors. Multiply with input data (centered I think) and you get your feature values
+\subsection{Spectral Clustering}
+Make Similarity Matrix, then do spectral Clustering on it. \ednote{Obvioulsy explain spectral Clustering here}
+\subsection{Find decision boundaries}
+Easy for case of 2 clusters, semi doable for 3 clusters, hard for n clusters. Will go into later
+
+
+
+\ednote{Transition}
+Basic idea is clear, but the devil is in the details
