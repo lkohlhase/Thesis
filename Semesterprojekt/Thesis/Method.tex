@@ -1,7 +1,85 @@
 \section{Basic Method}
 The basic Idea is that we first use SFA, then do clustering on the slow features, and then extract boundary points
 \subsection{Slow Feature Analysis}
-First you whiten the data, then you make temporal difference vectors, then do PCA take k least significant features, those are your feature vectors. Multiply with input data (centered I think) and you get your feature values
+\ednote{Find Paper to cite for slow feature analysis: Probably using this one: http://ieeexplore.ieee.org/document/6790128/}
+We base our description on SFA on \ednote{add citation here}.
+
+SFA is based on the principle that meaningful, global change in data happens slowly, compared to the possibly quick oscillations that local sensors can identify. If we were to look at a video of a zebra running in front of the camera, local sensors would quickly detect large changes in the color, due to the zebras stripes, however the global movement of the zebra would be much slower.
+
+\ednote{Add part about conditions for problem that SFA solves}
+
+Suppose we have a $k$-dimensional input signal $x(t)$.
+
+The first step of SFA is to normalize the data $x(t)$ to $\tilde{x}(t)$, where $\tilde{x}(t)$ has $0$ mean and unit variance.
+
+Then we expand $\tilde{x}(t)$ with some nonlinear functions $h(x)$. A standard choice for this are all monomials of degree $1$ and $2$. This is done so that SFA can also recognize nonlinear relationships in the data.
+
+As the last step of preprocessing, we whiten the expanded $z(t)=h(\tilde{x}(t))$ to receive $\tilde{z}(t)$, with again $0$ mean and with unit covariance matrix $\tilde{z}\tild{z}^T=I$. \ednote{Possibly describe how whitening is done, it's just PCA again}
+
+As an intermediary step, we make the matrix $Z=\dot{\tilde{z}}\dot{\tilde{z}}^T$, which is just the covariance matrix of the temporal difference vectors $\dot{\tilde{z}}(t)=\tilde{z}(t+1)-\tilde{z}(t)$.
+
+Finally we apply PCA \ednote{check whether this is first occurrence of PCA, do we need to define what PCA is? } to $Z$ to get a list of eigenvectors and eigenvalues $v_i$ and $\lambda_i$ respectively. We use these to define our slow features $g_i$, with $g_i=v_i^T\tilde{z}(t)$ and $\lambda_1 \geq \lambda _2 \leq \ldots \geq \lambda_k$. 
+
+We note that we use the smallest eigenvalues instead of the largest eigenvalues, since we want the slowest changing features.
+
+We can then use these feature values to construct a similarity matrix, that we can later use for clustering.
+\subsection{Make Similarity Matrix}
+\ednote{Think about possibly explaining closer what a similarity matrix is. But it's not really a well defined formal concept}
+The first step in making a similarity matrix is turning our sequence of feature values $g_1(t),g_2(t),\ldots,g_k(t)$  into a sequence of feature vectors. These feature vectors will then be compared to each other and their similarity scores will make up our similarity matrix.
+
+Our first choice is thus how are feature vectors are composed \ednote{This sounds dumb}, most notably how many features we use and how many timesteps we are comparing at once.
+
+The choice of how many features to consider obviously depends on the data that we use, if we expect there to be many relevant features, maybe because there are many semantically relevant slow changing parts of the sequence, e.g. there are many people running in a video, we should be using a high number of features in our feature vectors. If the data is relatively simple or we have a limited amount of computing power, then a lower number might be more appropriate. \ednote{This entire paragraph sounds dumb. Look at it later} For our experiments, we defaulted to using 5 features. \ednote{Is using we for authors proper in non math papers? }
+
+After choosing the number of features to consider, we must consider how many time steps to incorporate in our feature vectors. This will again be affected \ednote{affect or effect? I think it's affect} by our data, if we expect the segments to be about $100$ points long, then using $50$ time steps will cover a much larger portion of a segment than if we expected segments to be $1000$ points long. \ednote{Is it good to be specific here?} Four our experiments, we defaulted to using time steps of \ednote{time steps or timesteps?} 20, which seemed to work well regardless of data structure.
+
+Once we have chosen the number $n_{feature}$ of features and the number $n_{time}$ of time steps to consider, we construct our feature vectors $v(t)$ using:
+\[
+v(t)= \left (
+\begin{matrix}
+g_1(t) \\
+g_2(t) \\
+\vdots \\
+g_{n_{feature}}(t) \\
+g_{1}(t+1) \\
+\vdots \\
+g_{n_{feature}}(t+n_{time})
+\end{matrix}
+\right ) = \left (
+\begin{matrix}
+G_{n_{feature}}(t) \\
+G_{n_{feature}}(t+1) \\
+\vdots \\
+G_{n_{feature}}(t+n_{time})
+\end{matrix}
+\right )
+\]
+\ednote{lko:Is the $G$ stuff understandable? Or do I specifically need to define it? }
+The simplest way to make a similarity matrix is to simply take the scalar product as a similarity measure. However this has the issue that the resulting scores are not normalized, and that it is not independent of the scaling of vectors. If we take two vectors $v$ and $\lambda v$ with $\lambda \leq 1$, then $v*v \geq \lambda v* \lambda v=\lambda^2 v*v$, even though both are identical. 
+
+To remedy this, we use $e^{-d(v,v^*)/\Delta}$ as our similarity measure, for some vectors $v,v*$, some distance measure $d$, and some scalefactor $\Delta > 0$. This has the property that we only get similarities from $0-1$, and that we get a score of $1$ iff \ednote{lko:Do we write this out? or leave it as iff} the two vectors are identical. The issue with different scaling described for the previous points might still apply, however we are more interested in similar points, so this should be a minor issue \ednote{Is this understandable}.
+
+The choice of $\Delta$ depends on the given data and previous parameters chosen. If we choose a very small $\Delta$, then most of the similarities will be forced to go to $0$, but if we make it too large we will get many results that are too close to $1$. A good choice of $\Delta$ ensures that the the interval $[0,1]$ is filled relatively evenly. 
+\ednote{Put in picture of matrix done with basic euclidean matrix}
+
+The last relevant choice is the choice of distance measure.
+\subsubsection{DTW versus Euclidean}
+The main distances that we used were \ednote{look for dtw paper} using the simple euclidean distance and using the Digital Time Warping (DTW) distance. 
+
+From a purely theoretical perspective, DTW would seem more appropriate, since it takes into account possible misalignment of two sequences. However it has the heavy drawback that computing $d_{dtw}$ the DTW distance between two sequences is $O((n_{features}*n_{time})^2)$, while euclidean distance can be computed in $O(n_{features}*n_{time})$ \ednote{check whether its big o or small o}. In practice it was not uncommon for the larger matrices to take about a minute to compute with using Euclidean distance and taking over $10$ hours to compute using DTW.\ednote{dtw stuff here. Do I have to define dtw? }
+
+Thus when considering using DTW, we use several tricks to reduce the time needed for computation.
+
+We first use some insight about the structure of our feature vectors $v(t)$. Notably we use that our vectors $v(t)$ consist of subvectors $G(t)=(g_1(t) \ldots g_{num_{feature}}(t))$. Since $g_i$ are separate orthogonal features, we expect that the transition from $g_{num_{feature}}(t)$ to $g_1(t+1)$ would have no similarities. \ednote{Ehh this doesn't really work. I want something like any DTW path would go diagonally here} Thus it is theoretically sound to use $d_{dtw}(v_(t),v^*(t0)=\sum\limits_{i=0}^{num_{feature}} d_{dtw} (G_i(t),G^*_i (t))$, i.e. we are only aligning the same features to each other. This reduces the complexity to $O(num_{feature}num_{time}^2)$, which is a significant gain. 
+
+The final trick that we use is that we are mostly interested in local similarities, as we have to find boundary points that separate neighboring clusters and thus it is not as important how similar two feature vectors at the end and the start are, it is much more important to know how similar close points are. Thus the idea is that for close vectors, we use the superior DTW distance, and for far away vectors, we use euclidean distance. 
+
+A useful property of DTW distance that we use here is that $d_{dtw}(x,y)\leq d_{euclidean}(x,y) \forall x,y$, since  the DTW path would at worst be just the diagonal \ednote{lko: not happy about this but have raid now.}. Thus ^$e^{-d_{dtw}(x,y)}\geq e^{d_{euclidean}(x,y)}$, i.e. we possibly make distant points less similar than they should be. This is potentially an upside, as it reduces the chance of clustering techniques giving distant points the same clustering, which can make finding accurate boundary points difficult.
+
+ 
+
+\ednote{lko: Put picture of matrix here. Still need to make it though. Near the diagonal dtw, far away from the diagonal euclidean}
+\ednote{We probably want pictures of matrices here. Not sure if based on toydata or based on actual data} 
 \subsection{Spectral Clustering}
 Make Similarity Matrix, then do spectral Clustering on it. \ednote{Obvioulsy explain spectral Clustering here}
 \subsection{Find decision boundaries}
