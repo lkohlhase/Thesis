@@ -220,7 +220,7 @@ def simmatrix2(numfeatures,testerino,timesteps):
             distmatrix[-1].append(expdistance(row1,row2,delta))
     return np.matrix(distmatrix)
 
-def simmatrix3(numfeatures,testerino,timesteps):
+def slowestdtwmatrix(numfeatures,testerino,timesteps):
     matrixerino=[]
     finalmatrix=[]
     for i in range(len(testerino[:-timesteps])):
@@ -247,10 +247,68 @@ def simmatrix3(numfeatures,testerino,timesteps):
                 finalmatrix[-1].append(finalmatrix[j][i])#We know this already exists, since j<=i and we've done all the [i][:]
     return np.matrix(finalmatrix)
 
+def fastdtwmatrix(numfeatures,testerino,timesteps):
+    matrixerino=[]
+    finalmatrix=[]
+    for i in range(len(testerino[:-timesteps])):
+        matrixerino.append([])
+        for y in range(numfeatures):
+            helpvector=[]
+            for j in range(timesteps):
+                helpvector.append(testerino[i+j][y])
+            matrixerino[-1].append(np.matrix(np.array(helpvector).reshape(-1,1)))
+    for i in range(len(matrixerino)):
+        vectors1=matrixerino[i]
+        finalmatrix.append([])
+        print(str(i)+'/'+str(len(matrixerino)))
+        for j in range(len(matrixerino)):
+            if j%100==0:
+                print(j)
+            vectors2=matrixerino[j]
+            if i<=j:
+                dtwsum=0
+                for k in range(len(vectors1)):
+                    dtwsum+=fasdtw.dtw(vectors1[k],vectors2[k],dist=lambda x,y:np.linalg.norm(x-y))[0]
+                finalmatrix[-1].append(dtwsum) #setting finalmatrix[i][j]
+            else:
+                finalmatrix[-1].append(finalmatrix[j][i])#We know this already exists, since j<=i and we've done all the [i][:]
+    return np.matrix(finalmatrix)
 
-
-
-
+def hybriddtwmatrix(numfeatures,testerino,timesteps,windowsize):
+    matrixerino=[]
+    finalmatrix=[]
+    for i in range(len(testerino[:-timesteps])):
+        matrixerino.append([])
+        for y in range(numfeatures):
+            helpvector=[]
+            for j in range(timesteps):
+                helpvector.append(testerino[i+j][y])
+            matrixerino[-1].append(np.matrix(np.array(helpvector).reshape(-1,1)))
+    for i in range(len(matrixerino)):
+        vectors1=matrixerino[i]
+        finalmatrix.append([])
+        print(str(i)+'/'+str(len(matrixerino)))
+        for j in range(len(matrixerino)):
+            if j%100==0:
+                print(j)
+            vectors2=matrixerino[j]
+            if i<=j:
+                if i+windowsize<=j:
+                    newvector1=[vector.tolist() for vector in vectors1]
+                    newvector2=[vector.tolist() for vector in vectors2]
+                    newvector1=[item for sublist in newvector1 for item in sublist]
+                    newvector2 = [item for sublist in newvector2 for item in sublist]
+                    newvector1=np.array(newvector1)
+                    newvector2=np.array(newvector2)
+                    finalmatrix[-1].append(np.linalg.norm(newvector1-newvector2))
+                else:
+                    dtwsum=0
+                    for k in range(len(vectors1)):
+                        dtwsum+=dtw.dtw(vectors1[k],vectors2[k],dist=lambda x,y:np.linalg.norm(x-y))[0]
+                    finalmatrix[-1].append(dtwsum) #setting finalmatrix[i][j]
+            else:
+                finalmatrix[-1].append(finalmatrix[j][i])#We know this already exists, since j<=i and we've done all the [i][:]
+    return np.matrix(finalmatrix)
 def expdistance(vector1,vector2,delta):
     '''
     Calculates distance between two vectors, using formula e^{-(vector1-vector2)/delta)}
@@ -381,7 +439,6 @@ def find_boundarieskmeans(binarylist,numclusters,clusterimportance):
 
     size=len(binarylist)/numclusters
     centers=[(i,size*i+size/2) for i in range(numclusters)] #Initial guess is evenly spread centroids. This should conform to our expectation
-    clusters=[([],centers[i]) for i in range(numclusters)]
     for i in range(10):
         clusters = [([],centers[i]) for i in range(numclusters)]
         for j in range(len(binarylist)):
@@ -401,7 +458,26 @@ def find_boundarieskmeans(binarylist,numclusters,clusterimportance):
                 clustervalue=int(round(random.random()*numclusters))
                 numericcenter=random.random()*len(binarylist)
             centers.append([int(round(clustervalue)),numericcenter])
-    return centers
+        #Here we get boundaries from the centers
+        boundaries=boundariesfromcenters(clusters)
+    return boundaries
+def boundariesfromcenters(clusterslist):
+    '''
+    Takes a clusterslist as defined in findboundarieskmeans, and gives out actual decision boundaries. We don't simply choose the middle, but instead choose a point based on the size of
+    of the clusters, with the boundary being closer to the smaller clustercenter. The idea is to better represent situations like: [1,1,2,2,2,2,2,2,2,2,2,2,2] If we simply picked the middle between the two
+    centers there, we would misclassify some 2s.
+    :param clusterslist: clusterslist as in boundarieskmeans
+    :return: List of decisionboundaries.
+    '''
+    boundaries=[]
+    sortedclusterslist=sorted(clusterslist, key=lambda x:x[0][1])
+    for i,(cluster,center) in enumerate(sortedclusterslist[:-1]):
+        j=i+1
+        lengthi=len(cluster)
+        lengthj=len(sortedclusterslist[j][0])
+        boundarypoint=(lengthj*center[1]+lengthi*sortedclusterslist[j][1][1])/(lengthj+lengthi)
+        boundaries.append(boundarypoint)
+    return boundaries
 
 def clusteringheuristic1(binarylist,windowsize):
     '''
@@ -418,6 +494,8 @@ def clusteringheuristic1(binarylist,windowsize):
         centerpoint=windowsize/2+point
         mostcommon=max(clusters,key=lambda x: consideredlist.count(x))
         if consideredlist.count(mostcommon)>windowsize*threshold:
+            print('actualy did something with first heuristic. wow')
+            print(centerpoint)
             newlist[centerpoint]=mostcommon
     mostcommonstart=max(clusters,key=lambda x: originallist[:windowsize].count(x))
     if originallist[:windowsize].count(mostcommonstart)>windowsize*threshold:
@@ -457,6 +535,7 @@ def clusteringheuristic2(binarylist,windowsize,simmatrix):
             secondhighest=sortbinary[-2]
             #TODO make distance in simmatrix and just assign the point to closest and next closest, as long as those two are reasonably big.
             if binarylist[point:point+windowsize].count(highest)>windowsize*inclusionthreshold and binarylist[point:point+windowsize].count(secondhighest)>windowsize*inclusionthreshold: #Both other options are reasonably big
+                print("I've actually done something lelelelelelelle")
                 highestclusterino=[i for i,j in enumerate(binarylist) if j==highest]
                 secondhighestclusterino=[i for i,j in enumerate(binarylist) if j==secondhighest]
                 highestdistance=0
@@ -532,4 +611,5 @@ toydatashapes=['rect', 'triangle', 'sine','zigzag','step']
 # testtestdaata=[1 for x in range(500)]+[3 for x in range(51)]+[1 for x in range(500)]+[2 for x in range(1000)]
 # asdf=clusteringheuristic1(testtestdaata,1000)
 # print(asdf[450:650])
+
 
