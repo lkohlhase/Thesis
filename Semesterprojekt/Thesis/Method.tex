@@ -14,7 +14,7 @@ The first step of SFA is to normalize the data $x(t)$ to $\tilde{x}(t)$, where $
 
 Then we expand $\tilde{x}(t)$ with some nonlinear functions $h(x)$. A standard choice for this are all monomials of degree $1$ and $2$. This is done so that SFA can also recognize nonlinear relationships in the data.
 
-As the last step of preprocessing, we whiten the expanded $z(t)=h(\tilde{x}(t))$ to receive $\tilde{z}(t)$, with again $0$ mean and with unit covariance matrix $\tilde{z}\tild{z}^T=I$. \ednote{Possibly describe how whitening is done, it's just PCA again}
+As the last step of preprocessing, we whiten the expanded $z(t)=h(\tilde{x}(t))$ to receive $\tilde{z}(t)$, with again $0$ mean and with unit covariance matrix $\tilde{z}\tilde{z}^T=I$. \ednote{Possibly describe how whitening is done, it's just PCA again}
 
 As an intermediary step, we make the matrix $Z=\dot{\tilde{z}}\dot{\tilde{z}}^T$, which is just the covariance matrix of the temporal difference vectors $\dot{\tilde{z}}(t)=\tilde{z}(t+1)-\tilde{z}(t)$.
 
@@ -62,7 +62,7 @@ To remedy this, we use $e^{-d(v,v^*)/\Delta}$ as our similarity measure, for som
 The choice of $\Delta$ depends on the given data and previous parameters chosen. If we choose a very small $\Delta$, then most of the similarities will be forced to go to $0$, but if we make it too large we will get many results that are too close to $1$. A good choice of $\Delta$ ensures that the the interval $[0,1]$ is filled relatively evenly. 
 \ednote{Put in picture of matrix done with basic euclidean matrix}
 
-The last relevant choice is the choice of distance measure.
+Thus we are left with a similarity matrix $S$ with $(S)_{i,j}=e^{-d(v(i),v(j)/\Delta}$, where the last relevant choice is the choice of distance measure $d$.
 \subsubsection{DTW versus Euclidean}
 The main distances that we used were \ednote{look for dtw paper} using the simple euclidean distance and using the Digital Time Warping (DTW) distance. 
 
@@ -74,18 +74,52 @@ We first use some insight about the structure of our feature vectors $v(t)$. Not
 
 The final trick that we use is that we are mostly interested in local similarities, as we have to find boundary points that separate neighboring clusters and thus it is not as important how similar two feature vectors at the end and the start are, it is much more important to know how similar close points are. Thus the idea is that for close vectors, we use the superior DTW distance, and for far away vectors, we use euclidean distance. 
 
-A useful property of DTW distance that we use here is that $d_{dtw}(x,y)\leq d_{euclidean}(x,y) \forall x,y$, since  the DTW path would at worst be just the diagonal \ednote{lko: not happy about this but have raid now.}. Thus ^$e^{-d_{dtw}(x,y)}\geq e^{d_{euclidean}(x,y)}$, i.e. we possibly make distant points less similar than they should be. This is potentially an upside, as it reduces the chance of clustering techniques giving distant points the same clustering, which can make finding accurate boundary points difficult.
+A useful property of DTW distance that we use here is that $d_{dtw}(x,y)\leq d_{euclidean}(x,y) \forall x,y$, since  the DTW path would at worst be just the diagonal \ednote{lko: not happy about this but have raid now.}. Thus $e^{-d_{dtw}(x,y)}\geq e^{d_{euclidean}(x,y)}$, i.e. we possibly make distant points less similar than they should be. This is potentially an upside, as it reduces the chance of clustering techniques giving distant points the same clustering, which can make finding accurate boundary points difficult.
 
- 
+However the first step to being able to find a boundary is clustering in the first place. We do this using Spectral Clustering
 
 \ednote{lko: Put picture of matrix here. Still need to make it though. Near the diagonal dtw, far away from the diagonal euclidean}
 \ednote{We probably want pictures of matrices here. Not sure if based on toydata or based on actual data} 
 \subsection{Spectral Clustering}
-Make Similarity Matrix, then do spectral Clustering on it. \ednote{Obvioulsy explain spectral Clustering here}
+\ednote{Motivation for spectral clustering here. Not sure about it tbh, it's just the standard approach to use.}
+We choose to use spectral clustering because it is simple to implement, is based on standard linear algebra, similar to SFA, and because initial testing with other clustering techniques such as k-means clustering did not lead to good results. \ednote{lko: pretty ehhhh on this sentence tbh} We follow \ednote{citation here I guess} in their description of spectral clustering.
+
+There are several different variants of this technique, varying in the choice of similarity matrix and whether they normalize eigenvectors/values or not. However at their heart, they all follow the same sequence of steps.
+
+Given a similarity matrix $s \in \mathbb{R}^{T\cross T}$ and a number $k$ of desired clusters, we first start by computing the unnormalized Laplacian $L=D-S$, where $D$ is the diagonal of $S$.
+
+Next we compute the $k$ eigenvectors corresponding to the smallest $k$ eigenvalues \ednote{lko: Do we repeat $k$ here? Not sure if necessary or stylitically nice} $u_1,\ldots,u_k$ of $L$, which we use to construct the matrix $U\in \mathbb{R}^{T \times k}$, which has the eigenvectors $u_i$ as columns.
+
+We define $y_i$ to be the vector corresponding to the $i$-th row of $U$. This corresponds to taking the $i$-th elements of the first $k$ eigenvectors \ednote{lko: In principle this is not well defined, but we explained which vectors we were taking earlier, so it should be fine}.
+
+Then we use k-means clustering to cluster these \ednote{lko: Do we need to explain k-means clustering? I might want to do it later. Not sure at all. It's a very basic clustering technique.} $y_i$, into clusters $C_j$.
+
+We are left with clusters $C_1,\ldots, C_k$ that assign each feature vector $v(t)$ an integer representative of their cluster. However, this clustering could be relatively arbitrary, it is common that we get assign e.g. time $1$ to cluster 1, time $2$ to cluster $2$, but time $3$ to cluster $1$ again. We are looking to segment our time series data, i.e. we need to find points that act as boundaries for a clustering, while minimizing errors.
 \subsection{Find decision boundaries}
-Easy for case of 2 clusters, semi doable for 3 clusters, hard for n clusters. Will go into later
+As always when minimizing an error, we first have to define an error function. 
 
+To do this we first have to decide what error we want to minimize. There are two potential ways to approach this, we can try to minimize error in the similarity matrix or minimize error in the clustering. \ednote{lko: This whole sequence is bad imo}
 
+If we were to minimize errors in the similarity matrix, we would need to find boundary points that result in the smallest and least amount of misclassifications, if we consider every point as represented by their vector in the similarity matrix, or even as represented by just the values of their slow features.
+
+The other option would just require that we represent every point by the cluster-number assigned by spectral clustering, and try to minimize the number of misclassifications \ednote{lko: is misclassifications a word?} that would result in a specific boundary. 
+
+We go with the second option, since even finding a good error function for the first would be tricky, and would come too close to making the effort of spectral clustering useless \ednote{Okay this entire sequence is fucky, and needs to be reworked or removed. Might be a discussion worth having, so I'm writing something on it, but I'm just leaving it in because removing is easier than adding} 
+
+Thus we define our error function for the second interpretation. We consider boundary points $b_1,\ldots,b_k$ with the accompanying function $g(t,b_1,\ldots,b_k)$ assigning the point in time $t$ the value $j$ if $b_j\leq t <b_{j+1}$ and the function $c(t)=j$ if $y_t \in C_j$. For convenience sake we assume that the center of $C_i$ is lower than the center of $C_j$ iff \ednote{lko: again check iff} $i<j$. Then we get the error function \ednote{check if $T$ is the appropriate delimitor}
+\[
+E(b_1,\ldots,b_k)=\sum_{i=1}^T \delta_{g(t),c(t)}
+\]
+where $\delta_{i,j}$ is the Kronecker delta \ednote{check if spelling is correct}. Thus for a set of boundary points, we are simply checking how many points would be misclassified if we compare the clustering we get from spectral clustering to the clustering imposed by these boundary points.
+
+This leads us to the optimization problem of finding the minimum $\b_1^*,\ldots,b_k^*$ with 
+\[
+b_1^*,\ldots,b_k^*=\argmin_{b_1,\ldots,b_k} E(b_1,\ldots,b_k) 
+\]
+We can immediately see that if we only need one or two boundary points, it's viable to just try out all options, however the cost increases exponentially with the amount of boundary points.
+
+How many boundary points are needed is one of the key problems that we work around in the various specific implementations of the entire algorithm that we use.
+\ednote{Maybe put a summary in here somewhere?}
 
 \ednote{Transition}
 Basic idea is clear, but the devil is in the details
