@@ -1,11 +1,43 @@
 \section{Specific Details}
-The three methods presented here go in order from how online they are. We start with the full batch approach, which takes all the data that needs to be segmented at once.
-\subsection{Full Batch}
-\subsubsection{Finding Boundaries}
+In the previous section, we discussed the core steps of our algorithm, but we left out specific implementations. \ednote{lko:I really do not have this transition stuff down atm}
+
+In our testing, three different variants of the basic algorithm crystallized, which essentially differed in how online the approach was.
+
+We will first describe the fully offline approach, then the intermediate approach, and finally the fully online approach.
+\subsection{Batch}
+The basic idea behind the fully offline approach is very simple, given some sequence of input data $x(1), \ldots, x(T)$ with $x(t) \in \mathbb{R}^n$, we first generate $k$ slow features $g_i(t)$ using SFA on the entirety of our data, then we make feature vectors $v(t)$ as described previously \ednote{this should be enough right?}, use spectral clustering to cluster the data into $k_{cluster}$ different clusters, and then find the decision boundaries.
+
+This short description leaves two major questions open: How do we find decision boundaries and How many different clusters are we looking for?
+
+We will first look into how we could answer the second question. To answer it, we have to define what we regard as a good result of finding boundaries, especially if we use a variable number of boundaries. Intuitively, the most important thing is finding the correct boundaries potentially finding some extraneous \ednote{potentially unnecessary} is not that big of a deal \ednote{very colloquial}. Thus when looking at test data to answer the second question, we would look at the best decision boundaries, and see how close they are to the real decision boundaries.
+
+Thus, to have a chance at answering the second question, we must be able to find decision boundaries in the first place. Hence we have to first answer the first question.
+\ednote{We need to invent some way of formalizing this intuition}
+
+Given a list $c_1,\ldots,c_{T}$ of length $T$ \ednote{actually T-$n_{time}$} of integers from $1$ to $k_{cluster}$, and a list of true boundary points $b^*_1,\ldots, b^*_{k_{true}}$ Our goal is to use only $c_1,\ldots, c_{T}$, to find $k_{cluster}$ boundary points $b_1,\ldots,b_{k_{cluster}}$ with $b_1 < b_2 < \ldots <b_{k_{cluster}}$ so that $b_i$ are close to $b^*_j$. We consider the best $b_i$ for each $b^*{j}$, even if $b_{true}>b_{cluster}$. \ednote{lko:This isn't super formal either REEEEEEEEEE}
+
+Clearly without access to $b^*$, our best bet is to minimize some error function using only $c_i$. We had previously defined an error function 
+\[
+E(b_1,\ldots,b_k)=\sum_{i=1}^T \delta_{g(t),c_t}
+\]
+As a reminder, we defined by $g(t)$ the clustering induced by our boundary points, where $g(t)$ is equal to the most common element in the interval $[b_{i},b_{i+1})$, for $t \in [b_i,b_{i+1})$ \ednote{lko: Is this phrased nicely? Should be just that it's actually in that interval}. Then finding the optimal boundary points is just finding the answer to
+\[
+b_1^',\ldots,b_{k_{cluster}}^'=\argmin_{b_1,\ldots,b_{k_{cluster}} E(b_1,\ldots,b_k) \ednote{check if the prime shows well}
+\]
+\ednote[I forgot, do you do a hanging . here?}
+The naive solution to this is just trying every combination of points, and then evaluating $E$. However while this will certainly find the optimal $b_1^',\ldots,b_k^'$, however it grows exponentially in $k_{cluster}$ and is thus only viable for finding one or two boundary points at most.
+
+Thus for more complex problems, we must try to find a good approximation. \ednote{Probably want to add a figure of what clusterings can look like. Something like 2 by 2 with different data. Make sure to include messy shit}
+\subsubsection{Finding Approximate Boundaries}
 Enchanced k-means cluster, just find the centers LULERINO KAPPUCINO. 
+\subsubsection{Heuristics for better clustering}
+\ednote{Call this Batch SFA cutting or something, just find some nice name for the technique}
+
+
 \subsection{Mini Batch}
 Take fixed window sizes, find one boundary, work from there. 
 \subsection{Full Online}
+\ednote{possibly not gonna happen, remove subsection later if necessary}
 Essentially minibatch, but happy once a certain quality is reached.
 \subsection{Parameters}
 Reducenumber, number of features used. Delta and amount of features used for distance matrix. Distance measure (dtw versus just standard versus lazy as fuck :D )

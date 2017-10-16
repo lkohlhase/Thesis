@@ -73,7 +73,7 @@ Thus when considering using DTW, we use several tricks to reduce the time needed
 We first use some insight about the structure of our feature vectors $v(t)$. Notably we use that our vectors $v(t)$ consist of subvectors $G(t)=(g_1(t) \ldots g_{num_{feature}}(t))$. Since $g_i$ are separate orthogonal features, we expect that the transition from $g_{num_{feature}}(t)$ to $g_1(t+1)$ would have no similarities. \ednote{Ehh this doesn't really work. I want something like any DTW path would go diagonally here} Thus it is theoretically sound to use $d_{dtw}(v_(t),v^*(t0)=\sum\limits_{i=0}^{num_{feature}} d_{dtw} (G_i(t),G^*_i (t))$, i.e. we are only aligning the same features to each other. This reduces the complexity to $O(num_{feature}num_{time}^2)$, which is a significant gain. 
 
 The final trick that we use is that we are mostly interested in local similarities, as we have to find boundary points that separate neighboring clusters and thus it is not as important how similar two feature vectors at the end and the start are, it is much more important to know how similar close points are. Thus the idea is that for close vectors, we use the superior DTW distance, and for far away vectors, we use euclidean distance. 
-
+\ednote{lko: I have to rethink whether I want to use standard euclidean distance, or piecewise taxicab. I know what's meant}
 A useful property of DTW distance that we use here is that $d_{dtw}(x,y)\leq d_{euclidean}(x,y) \forall x,y$, since  the DTW path would at worst be just the diagonal \ednote{lko: not happy about this but have raid now.}. Thus $e^{-d_{dtw}(x,y)}\geq e^{d_{euclidean}(x,y)}$, i.e. we possibly make distant points less similar than they should be. This is potentially an upside, as it reduces the chance of clustering techniques giving distant points the same clustering, which can make finding accurate boundary points difficult.
 
 However the first step to being able to find a boundary is clustering in the first place. We do this using Spectral Clustering
@@ -106,7 +106,7 @@ The other option would just require that we represent every point by the cluster
 
 We go with the second option, since even finding a good error function for the first would be tricky, and would come too close to making the effort of spectral clustering useless \ednote{Okay this entire sequence is fucky, and needs to be reworked or removed. Might be a discussion worth having, so I'm writing something on it, but I'm just leaving it in because removing is easier than adding} 
 
-Thus we define our error function for the second interpretation. We consider boundary points $b_1,\ldots,b_k$ with the accompanying function $g(t,b_1,\ldots,b_k)$ assigning the point in time $t$ the value $j$ if $b_j\leq t <b_{j+1}$ and the function $c(t)=j$ if $y_t \in C_j$. For convenience sake we assume that the center of $C_i$ is lower than the center of $C_j$ iff \ednote{lko: again check iff} $i<j$. Then we get the error function \ednote{check if $T$ is the appropriate delimitor}
+Thus we define our error function for the second interpretation. We consider boundary points $b_1,\ldots,b_k$ with the accompanying function $g(t,b_1,\ldots,b_k)$ assigning the point in time $t$ the value $j$ if $j$ is the most common clustering in the interval $[b_t,b_{t+1})$ and the function $c(t)=j$ if $y_t \in C_j$. For convenience sake we assume that the center of $C_i$ is lower than the center of $C_j$ iff \ednote{lko: again check iff} $i<j$. Then we get the error function \ednote{check if $T$ is the appropriate delimitor}
 \[
 E(b_1,\ldots,b_k)=\sum_{i=1}^T \delta_{g(t),c(t)}
 \]
@@ -118,8 +118,8 @@ b_1^*,\ldots,b_k^*=\argmin_{b_1,\ldots,b_k} E(b_1,\ldots,b_k)
 \]
 We can immediately see that if we only need one or two boundary points, it's viable to just try out all options, however the cost increases exponentially with the amount of boundary points.
 
-How many boundary points are needed is one of the key problems that we work around in the various specific implementations of the entire algorithm that we use.
-\ednote{Maybe put a summary in here somewhere?}
 
+How many boundary points are needed is one of the key problems that we work around in the various specific implementations of the entire algorithm that we use. \ednote{lko: Dis transition is bad and I should feel bad. But transitions are what I'll need to fix when I have everything written, so YOLO}
+\ednote{Maybe put a summary in here somewhere?}
+\ednote{Potentially put reducenumber stuf in here}
 \ednote{Transition}
-Basic idea is clear, but the devil is in the details
