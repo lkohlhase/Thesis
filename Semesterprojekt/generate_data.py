@@ -242,7 +242,7 @@ def slowestdtwmatrix(numfeatures,testerino,timesteps):
                 dtwsum=0
                 for k in range(len(vectors1)):
                     dtwsum+=dtw.dtw(vectors1[k],vectors2[k],dist=lambda x,y:np.linalg.norm(x-y))[0]
-                finalmatrix[-1].append(dtwsum) #setting finalmatrix[i][j]
+                finalmatrix[-1].append(math.exp(-dtwsum)) #setting finalmatrix[i][j]
             else:
                 finalmatrix[-1].append(finalmatrix[j][i])#We know this already exists, since j<=i and we've done all the [i][:]
     return np.matrix(finalmatrix)
@@ -276,6 +276,7 @@ def fastdtwmatrix(numfeatures,testerino,timesteps):
 
 def hybriddtwmatrix(numfeatures,testerino,timesteps,windowsize):
     matrixerino=[]
+    delta=0.4
     finalmatrix=[]
     for i in range(len(testerino[:-timesteps])):
         matrixerino.append([])
@@ -289,8 +290,6 @@ def hybriddtwmatrix(numfeatures,testerino,timesteps,windowsize):
         finalmatrix.append([])
         print(str(i)+'/'+str(len(matrixerino)))
         for j in range(len(matrixerino)):
-            if j%100==0:
-                print(j)
             vectors2=matrixerino[j]
             if i<=j:
                 if i+windowsize<=j:
@@ -300,12 +299,12 @@ def hybriddtwmatrix(numfeatures,testerino,timesteps,windowsize):
                     newvector2 = [item for sublist in newvector2 for item in sublist]
                     newvector1=np.array(newvector1)
                     newvector2=np.array(newvector2)
-                    finalmatrix[-1].append(np.linalg.norm(newvector1-newvector2))
+                    finalmatrix[-1].append(expdistance(newvector1,newvector2,delta))
                 else:
                     dtwsum=0
                     for k in range(len(vectors1)):
                         dtwsum+=dtw.dtw(vectors1[k],vectors2[k],dist=lambda x,y:np.linalg.norm(x-y))[0]
-                    finalmatrix[-1].append(dtwsum) #setting finalmatrix[i][j]
+                    finalmatrix[-1].append(math.exp(-dtwsum)) #setting finalmatrix[i][j]
             else:
                 finalmatrix[-1].append(finalmatrix[j][i])#We know this already exists, since j<=i and we've done all the [i][:]
     return np.matrix(finalmatrix)
@@ -494,8 +493,6 @@ def clusteringheuristic1(binarylist,windowsize):
         centerpoint=windowsize/2+point
         mostcommon=max(clusters,key=lambda x: consideredlist.count(x))
         if consideredlist.count(mostcommon)>windowsize*threshold:
-            print('actualy did something with first heuristic. wow')
-            print(centerpoint)
             newlist[centerpoint]=mostcommon
     mostcommonstart=max(clusters,key=lambda x: originallist[:windowsize].count(x))
     if originallist[:windowsize].count(mostcommonstart)>windowsize*threshold:
@@ -535,7 +532,6 @@ def clusteringheuristic2(binarylist,windowsize,simmatrix):
             secondhighest=sortbinary[-2]
             #TODO make distance in simmatrix and just assign the point to closest and next closest, as long as those two are reasonably big.
             if binarylist[point:point+windowsize].count(highest)>windowsize*inclusionthreshold and binarylist[point:point+windowsize].count(secondhighest)>windowsize*inclusionthreshold: #Both other options are reasonably big
-                print("I've actually done something lelelelelelelle")
                 highestclusterino=[i for i,j in enumerate(binarylist) if j==highest]
                 secondhighestclusterino=[i for i,j in enumerate(binarylist) if j==secondhighest]
                 highestdistance=0
@@ -584,6 +580,7 @@ def findbestcenterapproach(binarylist,numclusters,windowsize):
         centers.append((bestcenter,bestcentervalue))
     return centers
 
+# NOTE THIS IS NOT HACA
 othersegmentationstuff=[[137,145,285,314,488,534,615,628,817 ,1018]
 ,[ 247,273,457,480,654,673,789,1178,1491,1510,1631,1803,1881,1974,2067,2212,2220,2384,2414],
 [10,233,471,487,609,618,847,877,971,1172,1339,1529,1571,1742,1779],

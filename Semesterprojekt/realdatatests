@@ -779,7 +779,7 @@ def realdatacomparisondiagram():
 def smoldatatest():
     windowsize = [1200, 2000, 2000, 2000, 2000, 1800, 2000, 1800, 2000]
     length=len(generate_data.othersegmentationstuff)
-    plt.figure()
+
     # for i in range(length):
     #     plt.subplot(length,1,i+1)
     #     sample=i+1
@@ -790,12 +790,72 @@ def smoldatatest():
     #     mb=minibatch(data,windowsize[i]/4)
     #     for point,error in mb:
     #         plt.scatter(point,2,marker='x')
-    sample=1
-    reducenumber=20
-    num_clusters=8
-    data=generate_data.smoldata(sample)
-    testdata=pca_reduce(data,reducenumber)
-    haca=generate_data.othersegmentationstuff[sample-1]
+    for j in range(9):
+        plt.figure()
+        sample=1+j
+        reducenumber=20
+        groundtruth = generate_data.segmentations['86 0'+str(sample)]
+        numclusters=len(groundtruth)
+        num_clusters=[numclusters-2,numclusters-1,numclusters,numclusters+1,numclusters+2,numclusters+3,numclusters+3]
+        print('Sample: '+str(sample))
+        print('smol')
+        data = np.array(generate_data.smoldata(sample))
+        testdata = pca_reduce(data, reducenumber)
+        haca = generate_data.othersegmentationstuff[sample - 1]
+        sfanode = mdp.nodes.SFANode()
+        expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+        testdata2 = expansionnode.execute(testdata)
+        print(testdata2.shape)
+        sfanode.train(testdata2)
+        sfanode.stop_training()
+        feature_values = sfanode.execute(testdata2, n=5)
+        distmatrix = generate_data.simmatrix2(5, feature_values, 20)
+        for i,clusternum in enumerate(num_clusters):
+            plt.subplot(len(num_clusters),2,2*i+1)
+            clusterer = cluster.SpectralClustering(n_clusters=clusternum, affinity='precomputed')
+            binarylist = clusterer.fit_predict(distmatrix)
+            binarylist = generate_data.reorder(binarylist)
+            plt.scatter(range(len(binarylist)),binarylist,marker='x')
+
+            groundtruth2=[point['middle']/4. for point in groundtruth]
+            for point in groundtruth2:
+                plt.plot([point,point],[0,10])
+
+        print('big')
+        data = np.array(generate_data.readSample(sample))
+        testdata = pca_reduce(data, reducenumber)
+        haca = generate_data.othersegmentationstuff[sample - 1]
+        sfanode = mdp.nodes.SFANode()
+        expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+        testdata2 = expansionnode.execute(testdata)
+        print(testdata2.shape)
+        sfanode.train(testdata2)
+        sfanode.stop_training()
+        feature_values = sfanode.execute(testdata2, n=5)
+        distmatrix = generate_data.simmatrix2(5, feature_values, 20)
+        for i, clusternum in enumerate(num_clusters):
+            plt.subplot(len(num_clusters), 2, 2*i + 2)
+            clusterer = cluster.SpectralClustering(n_clusters=clusternum, affinity='precomputed')
+            binarylist = clusterer.fit_predict(distmatrix)
+            binarylist = generate_data.reorder(binarylist)
+            plt.scatter(range(len(binarylist)), binarylist, marker='x')
+
+            groundtruth2 = [point['middle'] for point in groundtruth]
+            for point in groundtruth2:
+                plt.plot([point, point], [0, 10])
+    plt.show()
+def smoltest2():
+    plt.figure()
+    sample=8
+    reducenumber = 20
+    groundtruth = generate_data.segmentations['86 0' + str(sample)]
+    numclusters = len(groundtruth)
+    num_clusters = [numclusters - 2, numclusters - 1, numclusters, numclusters + 1, numclusters + 2, numclusters + 3, numclusters + 3]
+    print('Sample: ' + str(sample))
+    print('smol')
+    data = np.array(generate_data.smoldata(sample))
+    testdata = pca_reduce(data, reducenumber)
+    haca = generate_data.othersegmentationstuff[sample - 1]
     sfanode = mdp.nodes.SFANode()
     expansionnode = mdp.nodes.PolynomialExpansionNode(2)
     testdata2 = expansionnode.execute(testdata)
@@ -804,13 +864,225 @@ def smoldatatest():
     sfanode.stop_training()
     feature_values = sfanode.execute(testdata2, n=5)
     distmatrix = generate_data.simmatrix2(5, feature_values, 20)
-    clusterer = cluster.SpectralClustering(n_clusters=num_clusters, affinity='precomputed')
-    binarylist = clusterer.fit_predict(distmatrix)
-    binarylist = generate_data.reorder(binarylist)
-    plt.scatter(range(len(binarylist)),binarylist,marker='x')
+    expected_windowsize=1000/4 #specific value for sample 8
+    for i, clusternum in enumerate(num_clusters):
+        plt.subplot(len(num_clusters), 1, 1 * i + 1)
+        clusterer = cluster.SpectralClustering(n_clusters=clusternum, affinity='precomputed')
+        binarylist = clusterer.fit_predict(distmatrix)
+        binarylist = generate_data.reorder(binarylist)
+        binarylist=generate_data.reorder(binarylist)
+        binarylist=generate_data.clusteringheuristic1(binarylist,expected_windowsize)
+        binarylist=generate_data.clusteringheuristic2(binarylist,expected_windowsize,distmatrix)
+        boundary1=generate_data.findbestcenterapproach(binarylist,clusternum,expected_windowsize)
+        boundary2=generate_data.find_boundarieskmeans(binarylist,clusternum,expected_windowsize/2)
 
-    for point in haca:
-        plt.plot([point,point],[0,10])
+        plt.scatter(range(len(binarylist)), binarylist, marker='x')
+        for boundary in boundary1:
+            plt.plot([boundary[0],boundary[0]],[11,12],'red')
+        for boundary in boundary2:
+            plt.plot([boundary,boundary],[13,14],'blue')
+        groundtruth2 = [point['middle']/4. for point in groundtruth]
+        for point in groundtruth2:
+            plt.plot([point, point], [0, 5])
+        for point in haca:
+            plt.plot([point,point],[5,10])
+    plt.show()
+def smoldtwtest():
+    sample=8
+    reducenumber=20
+    expected_windowsize = 1000 / 3 # specific value for sample 8
+    groundtruth = generate_data.segmentations['86 0' + str(sample)]
+    numclusters = len(groundtruth)
+    data = np.array(generate_data.smoldata(sample))
+    testdata = pca_reduce(data, reducenumber)
+    haca = generate_data.othersegmentationstuff[sample - 1]
+    sfanode = mdp.nodes.SFANode()
+    expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+    testdata2 = expansionnode.execute(testdata)
+    print(testdata2.shape)
+    sfanode.train(testdata2)
+    sfanode.stop_training()
+    feature_values = sfanode.execute(testdata2, n=5)
+    matrix1,matrix2,matrix3=pickle.load(open('logs/dtwstuff','rb'))
+    #dumperino=[]
+    #distmatrix1=generate_data.simmatrix2(5,feature_values,20)
+    #dumperino.append(distmatrix1)
+    #pickle.dump(dumperino,open('Logs/dtwstuff','wb'))
+    newmatrix2=generate_data.hybriddtwmatrix(5,feature_values,20,expected_windowsize)
+    #dumperino.append(distmatrix3)
+    #pickle.dump(dumperino,open('logs/dtwstuff','wb'))
+
+    #distmatrix2=generate_data.slowestdtwmatrix(5,feature_values,20)
+    dumperino=[matrix1,newmatrix2,matrix3]
+    pickle.dump(dumperino,open('Logs/dtwstuff','wb'))
+    #plt.matshow(distmatrix1)
+    #plt.matshow(distmatrix2)
+    #plt.matshow(distmatrix3)
+    #plt.show()
+def makeclustersfromboundaries(binarylist,boundaries):
+    clusters=[[] for boundary in boundaries]+[[]]
+    for i,clustering in enumerate(binarylist):
+        donezo=True
+        for j,point in enumerate(boundaries):
+            if i<point:
+                clusters[j].append((i,clustering))
+                donezo=False
+                break
+        if donezo:
+            clusters[-1].append((i,clustering))
+    return clusters
+
+
+    pass
+def clusterevaluation1(binarylist,clusters):
+    '''
+    Evaluates a clustering created by makeclustersfromboundaries, and a standard binarylist as everywhere else in these files. Evaluates it by seeing how homogenous it is, aka what ratio the most common has to everything else.
+    Returns that ratio
+    '''
+    scores=[]
+    for cluster in clusters:
+        if cluster!=[]:
+            clusteringlist=[x[1] for x in cluster]
+            mostcommon=max(set(clusteringlist), key=clusteringlist.count)
+            scores.append(clusteringlist.count(mostcommon)/float(len(clusteringlist)))
+        else:
+            scores.append(0)
+    return scores
+
+def clusterevaluation2(binarylist,clusters,distmatrix):
+    '''
+    Evaluates a clustering created by makeclustersfromboundaries, and a standard binarylist as everywhere else in these files, and the corresponding distance matrix. Computes the sum of the similarity scores of the clustering (box on distmatrix), then divides by n^2 (basically average similarity)
+    '''
+    scores=[]
+    for cluster in clusters:
+        if cluster!=[]:
+            sum=0
+            for point1 in cluster:
+                coordinate1=point1[0]
+                for point2 in cluster:
+                    coordinate2=point2[0]
+                    sum+=distmatrix.item(coordinate1,coordinate2)
+            sum/=len(cluster)**2
+            scores.append(sum)
+        else:
+            scores.append(0)
+    return scores
+def smoltest3():
+    plt.figure()
+    sample=8
+    reducenumber = 20
+    groundtruth = generate_data.segmentations['86 0' + str(sample)]
+    numclusters = len(groundtruth)
+    num_clusters = [numclusters - 2, numclusters - 1, numclusters, numclusters + 1, numclusters + 2, numclusters + 3, numclusters + 3]
+    print('Sample: ' + str(sample))
+    print('smol')
+    data = np.array(generate_data.smoldata(sample))
+    testdata = pca_reduce(data, reducenumber)
+    haca = generate_data.othersegmentationstuff[sample - 1]
+    sfanode = mdp.nodes.SFANode()
+    expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+    testdata2 = expansionnode.execute(testdata)
+    print(testdata2.shape)
+    sfanode.train(testdata2)
+    sfanode.stop_training()
+    feature_values = sfanode.execute(testdata2, n=5)
+    distmatrix = generate_data.simmatrix2(5, feature_values, 20)
+    expected_windowsize=1000/4 #specific value for sample 8
+    for i, clusternum in enumerate(num_clusters):
+        plt.subplot(len(num_clusters), 1, 1 * i + 1)
+        clusterer = cluster.SpectralClustering(n_clusters=clusternum, affinity='precomputed')
+        binarylist = clusterer.fit_predict(distmatrix)
+        binarylist = generate_data.reorder(binarylist)
+        binarylist=generate_data.reorder(binarylist)
+        binarylist=generate_data.clusteringheuristic1(binarylist,expected_windowsize)
+        binarylist=generate_data.clusteringheuristic2(binarylist,expected_windowsize,distmatrix)
+        boundary1=generate_data.findbestcenterapproach(binarylist,clusternum,expected_windowsize)
+        boundary2=generate_data.find_boundarieskmeans(binarylist,clusternum,expected_windowsize/2)
+        boundary12=[x[0] for x in boundary1[1:]]
+        clusters1=makeclustersfromboundaries(binarylist,boundary12)
+        clusters2=makeclustersfromboundaries(binarylist,boundary2)
+        evaloneone=clusterevaluation1(binarylist,clusters1)
+        evaltwoone=clusterevaluation1(binarylist,clusters2)
+        evalonetwo=clusterevaluation2(binarylist,clusters1,distmatrix)
+        evaltwotwo=clusterevaluation2(binarylist,clusters2,distmatrix)
+        plt.scatter(range(len(binarylist)), binarylist, marker='x')
+
+        for i,boundary in enumerate(boundary1):
+            plt.scatter(boundary[0],[11],marker='.',c='red',s=(1-evaloneone[i])**2*1000+30)
+            plt.scatter(boundary[0],[15],marker='.',c='blue',s=(1-evalonetwo[i])**2*1000+30)
+        for i,boundary in enumerate(boundary2):
+            plt.scatter(boundary,[19],marker='x',c='red',s=(1-evaltwoone[i])**2*1000+30)
+            plt.scatter(boundary,[23],marker='x',c='blue',s=(1-evaltwotwo[i])**2*1000+30)
+        groundtruth2 = [point['middle']/4. for point in groundtruth]
+        for point in groundtruth2:
+            plt.plot([point, point], [0, 5])
+        for point in haca:
+            plt.plot([point,point],[5,10])
+    plt.show()
+def generatematrices():
+    euclidmatrix,hybridmatrix,fulldtwmatrix=pickle.load(open('logs/dtwstuff','rb'))
+    euclidwith0s=[]
+    for i,row in enumerate(euclidmatrix):
+        euclidwith0s.append([])
+        for j,entry in enumerate(row.tolist()[0]):
+            if abs(i-j)<400:
+                euclidwith0s[-1].append(euclidmatrix.item(i,j))
+            else:
+                euclidwith0s[-1].append(0)
+    euclidwith0s=np.matrix(euclidwith0s)
+    dtwwith0s=[]
+    for i,row in enumerate(euclidmatrix):
+        dtwwith0s.append([])
+        for j,entry in enumerate(row.tolist()[0]):
+            if abs(i-j)<400:
+                dtwwith0s[-1].append(fulldtwmatrix.item(i,j))
+            else:
+                dtwwith0s[-1].append(0)
+    dtwwith0s=np.matrix(dtwwith0s)
+    return[euclidmatrix,fulldtwmatrix,hybridmatrix,euclidwith0s,dtwwith0s]
+
+def smoltest4():
+    plt.figure()
+    reducenumber = 20
+    groundtruth = generate_data.segmentations['86 0' + str(8)]
+    numclusters = len(groundtruth)
+    haca = generate_data.othersegmentationstuff[8 - 1]
+    sfanode = mdp.nodes.SFANode()
+    expected_windowsize = 1000 / 4  # specific value for sample 8
+    euclidmatrix,fulldtwmatrix,hybridmatrix,euclidwith0s,dtwwith0s=generatematrices()
+    labels=['Full Euclidean','Full Dtw','Hybrid Euclidean and DTW','Euclidean with 0s','Dtw with 0s']
+    matrices=[euclidmatrix,fulldtwmatrix,hybridmatrix,euclidwith0s,dtwwith0s]
+    for i,distmatrix in enumerate(matrices):
+        plt.subplot(len(matrices), 1, 1 * i + 1)
+        clusterer = cluster.SpectralClustering(n_clusters=numclusters, affinity='precomputed')
+        binarylist = clusterer.fit_predict(distmatrix)
+        binarylist = generate_data.reorder(binarylist)
+        binarylist=generate_data.reorder(binarylist)
+        binarylist=generate_data.clusteringheuristic1(binarylist,expected_windowsize)
+        binarylist=generate_data.clusteringheuristic2(binarylist,expected_windowsize,distmatrix)
+        boundary1=generate_data.findbestcenterapproach(binarylist,numclusters,expected_windowsize)
+        boundary2=generate_data.find_boundarieskmeans(binarylist,numclusters,expected_windowsize/2)
+        boundary12=[x[0] for x in boundary1[1:]]
+        clusters1=makeclustersfromboundaries(binarylist,boundary12)
+        clusters2=makeclustersfromboundaries(binarylist,boundary2)
+        evaloneone=clusterevaluation1(binarylist,clusters1)
+        evaltwoone=clusterevaluation1(binarylist,clusters2)
+        evalonetwo=clusterevaluation2(binarylist,clusters1,distmatrix)
+        evaltwotwo=clusterevaluation2(binarylist,clusters2,distmatrix)
+        plt.title(labels[i])
+        plt.scatter(range(len(binarylist)), binarylist, marker='x')
+
+        for i,boundary in enumerate(boundary1):
+            plt.scatter(boundary[0],[11],marker='.',c='red',s=(1-evaloneone[i])**2*1000+30)
+            plt.scatter(boundary[0],[15],marker='.',c='blue',s=(1-evalonetwo[i])**2*1000+30)
+        for i,boundary in enumerate(boundary2):
+            plt.scatter(boundary,[19],marker='x',c='red',s=(1-evaltwoone[i])**2*1000+30)
+            plt.scatter(boundary,[23],marker='x',c='blue',s=(1-evaltwotwo[i])**2*1000+30)
+        groundtruth2 = [point['middle']/4. for point in groundtruth]
+        for point in groundtruth2:
+            plt.plot([point, point], [0, 5])
+        for point in haca:
+            plt.plot([point,point],[5,10])
     plt.show()
 #first_attempt()
 #second_attempt()
@@ -831,4 +1103,7 @@ def smoldatatest():
 #doubletriplediagram()
 #realdatacomparison()
 #realdatacomparisondiagram()
-smoldatatest()
+#smoldatatest()
+#smoltest2()
+#smoldtwtest()
+#smoltest3()
