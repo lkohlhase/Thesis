@@ -1,6 +1,7 @@
 \section{Specific Details}
 In the previous section, we discussed the core steps of our algorithm, but we left out specific implementations. \ednote{lko:I really do not have this transition stuff down atm}
 
+\ednote{The flow here should be: First batch, then minibatch as answer to the question: Into how many things do you want to cluster? Then fully online as answer to the question of how big do you want windows to get.}
 In our testing, three different variants of the basic algorithm crystallized, which essentially differed in how online the approach was.
 
 We will first describe the fully offline approach, then the intermediate approach, and finally the fully online approach.
@@ -22,17 +23,166 @@ E(b_1,\ldots,b_k)=\sum_{i=1}^T \delta_{g(t),c_t}
 \]
 As a reminder, we defined by $g(t)$ the clustering induced by our boundary points, where $g(t)$ is equal to the most common element in the interval $[b_{i},b_{i+1})$, for $t \in [b_i,b_{i+1})$ \ednote{lko: Is this phrased nicely? Should be just that it's actually in that interval}. Then finding the optimal boundary points is just finding the answer to
 \[
-b_1^',\ldots,b_{k_{cluster}}^'=\argmin_{b_1,\ldots,b_{k_{cluster}} E(b_1,\ldots,b_k) \ednote{check if the prime shows well}
+b_1,\ldots,b_{k_{cluster}}=\argmin_{b_1,\ldots,b_{k_{cluster}}} E(b_1,\ldots,b_k) 
 \]
-\ednote[I forgot, do you do a hanging . here?}
-The naive solution to this is just trying every combination of points, and then evaluating $E$. However while this will certainly find the optimal $b_1^',\ldots,b_k^'$, however it grows exponentially in $k_{cluster}$ and is thus only viable for finding one or two boundary points at most.
+\ednote{check if the prime shows well}
+\ednote{I forgot, do you do a hanging . here?}
+The naive solution to this is just trying every combination of points, and then evaluating $E$. However while this will certainly find the optimal $b_1,\ldots,b_k$, however it grows exponentially in $k_{cluster}$ and is thus only viable for finding one or two boundary points at most.
 
 Thus for more complex problems, we must try to find a good approximation. \ednote{Probably want to add a figure of what clusterings can look like. Something like 2 by 2 with different data. Make sure to include messy shit}
 \subsubsection{Finding Approximate Boundaries}
-Enchanced k-means cluster, just find the centers LULERINO KAPPUCINO. 
+At first glance, finding good boundaries is trivial, since most clustering algorithms such as k-means clustering or \ednote{support vector machine. Not really a method of clustering, but a way of finding a boundary} implicitly define decision boundaries, which we would just need to make explicit. However these decision boundaries would lie \ednote{is this the spelling?} in the two-dimensional space of $(time,clustering)$. The boundary points that we are looking for are one dimensional points in time, thus some care has to be taken. 
+
+\ednote{We formalized what the list would like above. Check that everything is consistent}
+
+One primitive approach, was to find for every clustering $i \in [1,\ldots,n_{cluster}]$ the window of size $w_{s}$ \ednote{terrible variable name. Look for better one later} that contains the maximum amount of labels \ednote{check if we called them labels earlier. I really need to get this stuff consistent} $c_i$ corresponding to this clustering. Then we simply use the start of this window as a boundary point. 
+\ednote{pseudo code here. Make sure it's nice.}
+boundaries=[]
+For clustering in $[1,\ldots,n_{cluster}]$:
+clusteringcount=0
+bestpoint=0
+for point in $[1,\ldots,len(list)-windowsize]$:
+if [point,point+windowsize].count(clustering)>clusteringcount:
+clusteringcount=[point,point+windowize].count(clustering)
+bestpoint=point
+boundaries.append(point)
+return boundaries
+
+\ednote{end pseudocode}
+
+This actually works surprisingly well, however it does need the extra parameter windowsize, and it doesn't work super well with data that has many different windowsizes, and has ugly combinations. Say $[1,1,2,1,2,2]$ and a windowsize of $3$, would have boundaries at 0, and at 2. Also has issues with the starting boundaries. Also it isn't theoretically satisfying. 
+
+\ednote{obviously rephrase this.}
+While the previous approach worked relatively well for "`nice"' \ednote{check if these sort of quotes work like I want them to} clusterings, with similar, known windowsizes and not much confusion, we also need an approach that works when the data gets more ugly.
+
+The first clustering algorithm that almost everyone learns \ednote{I'm not sure this is a good transition} is k-means clustering \ednote{If I wnated to jsut cite this instead of explaining it, here would be a place to do so}. It would seem natural at first glance to use it to find the decision boundaries as well. However, it is made more complex by the fact that the data points that we would be applying to it to would be from $[1,\ldots,n_{cluster}]\times [1,\ldots,T]$, i.e. the points that we would want to cluster consist of a pair of clustering and point in time. However, the distance for the clusterings can't just be the standard distance function, since a clustering label of $1$ is in principle the same distance from a clustering label of $2$ as it is from a clustering label $10$.
+
+Thus we define the distance function $d^*:(\mathbb{N}\times \mathbb{R})^2\rightarrow \mathbb{R}$ \ednote{check if this is properly formatted} by
+\[
+d^* ((c_1,t_1),(c_2,t_2))=\mu *\delta_{c_1,c_2} +|t_1-t_2|
+\]
+where $\delta_{i,j}$ is the Kronecker-delta. 
+
+Thus we define the distance between two points to be the distance of their clustering and their temporal distance. We scale the distance of their clusterings by a factor $\mu > 0$, since $\delta_{i,j}$ is always either $1$ or $0$, while $t_i$ could range as high as $10000$ in some testcases. 
+
+We choose a $\mu$ of about half the expected window size $w_{expected}$, as this will ensure that for some cluster with center $c^*$, every point in the interval $[c^*-w_{expected}/2,c^*+w_{expected}/2]$ with the same clustering as $c^*$ will be assigned to the $c^*$'s cluster. \ednote{More analysis can be done here on why this would be a cool choice and what the consequences would be, potentially some conditions as well}
+\ednote{Still not entirely sure where/whether I should define k-means clustering}
+Then the slightly modified $k-means$ we use is defined by
+\ednote{again pseudo code here}
+Initialize centers $c^*_i$
+Initialize clusterings $C_i$empty.
+While(not done)
+{
+for clustering,time in clusterlist:
+
+$
+{
+i=argmin d^*((clustering,time),c^*_i)
+C_i.append((clustering,time)
+}
+For all C_i:
+c^*_i=(mostcommon(C_I[0]),mean(C_i[1])
+repeat till happy$
+}
+\ednote{end pseudo code}
+We note that this further departs from the conventional k-means algorithm by choosing not the average clustering as new center of a cluster, but instead the most common element. This is again a natural consequence of the nature of the clusterings as only integers.
+\ednote{Needs to be rephrased. clustering versus cluster is awkward, I need to find a good name to call things}
+
+After applying this technique, we are left with a list of clusters $C_i$ consisting of points $(old clustering label,time)$ \ednote{check if there are proper spaces and such in there} and their accompanying center $(c^*_i,t^*_i)$. To transform these into boundary points $b^*_i$ \ednote{check if this is how we called boundary points previously}, we simply project onto the temporal axis and are left with points $t^*_i$.
+
+However these points correspond to centers of clusters, not decision boundaries. Naively, we could just take the middle point between two centers $t_i$ as decision boundary, however this does not deal well with situations such as $[1,1,1,1,2,2,2,2,2,2,2,2]$. Intuitively, the best centers for two clusters would be $(1,2)$ and $(2,8)$. However if we then took the center, we would get a decision boundary $(8+2)/2=5$, instead of the clearly superior $4$.
+
+\ednote{is this good paragraph wise}
+Thus we must find a more suitable way to get boundaries from centers than just taking their middle points respectively. \ednote{I don't like middlepoints, there should be a better word available} We recall, that we not only have the centers $(c^*_i,t^*_i)$, but also the clusters $C_i$ available. The problem arises when we try to find the boundary between two clusters of different size, thus it stands to reason that we can use the sizes of our clusters to better approxmimate a good boundary by using the formula:
+\[
+b_i=\frac{|C_i|t^*_{i+1}+|C_{i+1}t^*{i}}{|C_i|+|C_{i+1}|}
+\]
+If we apply this to our previous example, we get $b_i=\frac{4*2+8*5}{12}=4$, which is the result we wanted.
+
+Thus, the second algorithm for finding boundaries is given by
+\ednote{start pseudocode}
+$Given list [c_1,\ldots,c_{T}] of clustering labels
+C_i,c_i=modified kmeans (c_1,ldots,c_T)
+For i in range(len(C_i)-1):
+b_i=\frac{|C_i|*t^*{i+1}+|C_{i+1}|*t^*{i}}{|C_i|+|C_{i+1}|}$
+\ednote{end pseudocode}
+\ednote{Might be appropriate to put a small subsection in with diagram taht shows how the two clustering algorithms perform on different data}
+\subsubsection{Number of Clusters}
+Now that we have determined how to find boundaries, we must ask how many clusters are we looking for? Of course, if the number of desired clusters is known, we can simply look for the appropriate number of clusters.
+
+However, if the appropriate number of clusters is unknown, we have to make some guess as to how many clusters to look for is appropriate \ednote{are appropriate? Not sure onthis one}. 
+
+To answer this question we look at diagram \ednote{add in diagram here, that shows high amount of clusters versus low amount of clusters} . As we can see
+, for a too low choice of boundaries, certain boundaries are missed completely, such as the one by ~1700.
+
+If we choose a too high number of clusters, some of the boundaries seem to all correspond to the same boundary,as seen for the boundary by ~ 650 in the diagram, while some potentially finer clustering is achieved in different areas of the diagram. For the sample analyzed in the diagram, the first 250 timesteps consisted of a person walking, the different segmentations of the first real segment correspond to the person changing direction. 
+
+Thus we conclude that if we are unsure on the amount of clusters/boundaries to look for, we should err on the side of caution and rather choose a too high number of boundaries than a too low one.
+
+However we note that regardless of how many boundaries we choose to look for, the boundary at ~800 \ednote{is ~x even accepted? } is not detected by the algorithm. One potential cause of this is that similarities to off-diagonal elements in the similarity matrix are detected, that might interfere with the correct choice of boundary.
+
+Hence we look at a possibly different choice of similarity matrix, to help alleviate the issue.
+\subsubsection{Choice of Similarity matrix}
+As discussed previously, the major choice in similarity matrix is choosing between the dtw-distance and euclidean distance, and further deciding how many off-diagonal elements to choose. 
+
+In diagram \ednote{reference here}, we show five different choices of similarity matrix. The first choice is just using a full matrix filled with similarities computed using the euclidean distance, while the second is a full matrix of similarities computed using the dtw distance \ednote{check if dtw was capitalized before}. The last three matrices include are various hybrids, one with a stretch around the diagonal based on dtw-distance and the rest euclidean distance, and the other two with zeroes on the off-diagonal stretch and dtw/euclidean based similarities on the diagonal part respectively.
+
+\ednote{include diagram of similarity matrices}
+
+We use these matrices in on the same dataset as before, but with the correct number of clusters in diagram \ednote{reference here} . As we can see the two pure solution perform worst of all, while all three other solutions perform equally well. However we do not that for the hybrid dtw/euclidean matrix, while the found boundaries aligned about equally well, the first segment contains clustering labels from significantly later segments. Since our goal is to provide local boundaries, instead of trying to classify different motions, this leads us to conclude that taking only a band around the diagonal as nonzero is probably the best choice of similarity matrix. 
+
+This is a very good result, since it means we probably don't have to compute the full matrices, and we especially don't have to compute the expensive full dtw matrix. 
+\ednote{add diagram of clustering}
+
+
+
 \subsubsection{Heuristics for better clustering}
+Finally, we used several heuristics to improve the clustering result.
+
+The heuristics can mainly be sorted into two groups: Improving the clustering result by modifying the clustering labels provided by spectral clustering, and trying to evaluate the quality of the implicit clustering provided by finding boundary points.
+
+We initially constructed these heuristics when working on toydata, since we often got clustering results such as in Diagram X. \ednote{add diagram here. Two graphs 8 clusterrealdata, and DTWflawless} The two problems we focused on can be seen in  subdiagram 1, we have relatively clear regions such as $0-200$, with some outlier points at $80$ish, and in subdiagram at about $400$, where we have one clearly defined segment that is too short to be a segment all on its own. 
+
+Our first heuristic was developped to try to deal with the outliers seen in subdiagram 1\ednote{check if references are working properly here}. We look at a window of a certain size centered around a point, and if more than $90\%$ \ednote{chekc if percent shows up here} of the window is one clustering label, we change that point to this most common clustering label. Since the window is centered around this point, we can be assured that we don't accidentally change the label at some actual transition point, since the lower half and the upper half of the interval would contain different clusterings.
+
+\ednote{put pseudocode for this heuristic here}
+
+With our second heuristic we tried to deal with the second problem, a clearly defined segment, that is too short to be a real segment. We assume that it actually belongs to one of the neighbouring segments, and we need to reattach it. However, we cannot know which of the two neighbouring segments it should belong to, just based on the list of clustering labels. Thus we compare the distance to the neighbouring segments in the similarity matrix, and attach the segment to the closer one.
+
+Thus this heuristic consist of two parts, identifying the situation, one small segment surrounded by two bigger, different segments, and then finding out which of the two neighbouring segments to attach it to \ednote{decide if neighboring or neighbouring}.
+
+\ednote{pseudocode for it here}
+for point in list[windowsize/2:-windowsize/2]:
+find mostcommon in list[point-windowsize/2:point+windowsize/2]
+find secondmostcommon in list[point-windowsize/2:point+windowsize/2]
+if list[point-windowsize/2:point+windowsize/2].count(point) < windowsize*0.2:
+if count(mostcommon)>0.3*windowsize and count(secondmostcommon)> 0.3*windowsize: 
+pointline=simmatrix[point]
+highestclusterino=[i for i,j in enumerate(binarylist) if j==highest]
+secondhighestclusterino=[i for i,j in enumerate(binarylist) if j==secondhighest]
+\ednote{end pseudocode}
+
+We note that for both of these heuristics, we set the thresholds for them to activate rather conservatively. At worst, the heuristics do not trigger, which leaves us in the same situation as before. If they triggered too often, it could lead to potential problems.
+
+The heuristics to evaluate the quality of a clustering were developed when trying to answer the question of how many boundary points to use/into how many different clusters to cluster. The idea was that if we could cheaply figure out how good a clustering was, we could then reject reject a number of clusters that lead to bad clusterings.
+
+Similarly to the previous two heuristics, we again have one heuristic that uses solely information from the clustering labels provided by spectral clustering, while the other one uses information from the similarity matrix. 
+
+The first one simply uses the ratio of the number of occurrences of the most common clustering versus the size of the window, so if we have a cluster in the interval $[i,j]$, the score would be $[i,j].count(mostcommon)/(|i-j|)$. \ednote{is this formula formal enough? } Intuitively, a clustering that consists only of a single cluster would be optimal, a cluster that consisted of equally distributed all different clusterings would be the worst possible one.
+
+The second heuristic considers that we already have similarity scores in the similarity matrix of choice, thus we can use them. If we again have a clustering implicitly provided by boundary points $i$ and $j$, we get a score of
+\[
+\sum\limits_{i,j} (S)_{i,j}/|i-j|^2
+\]
+where $S$ is the similarity matrix. 
+
+This is then simply the average similarity in the clustering.
+
+We can see some scores provided to clusterings in diagram \ednote{add diagram and reference it here}. As we can see, they both perform incredibly similarly, and give no real insight on whether a cluster is suitable or not. 
+\ednote{We might want to put evaluation of clusterings in here.}
 \ednote{Call this Batch SFA cutting or something, just find some nice name for the technique}
 
+An alternative avenue of implicitly finding how many clusters is provided by our next approach.
 
 \subsection{Mini Batch}
 Take fixed window sizes, find one boundary, work from there. 

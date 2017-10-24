@@ -1,5 +1,16 @@
 \section{Basic Method}
-The basic Idea is that we first use SFA, then do clustering on the slow features, and then extract boundary points
+\ednote{We need to define at some point what exactly we're looking for in terms of boundary points. Define input data, and then that we need cutting points}
+
+
+Paragraph about why SFA is good here.
+
+Paragraph about why we want to use selfsimilarity. (Motions are made of many oft repeated motions)
+
+Thus our goal is to investigate an algorithm that segments motion data using SFA and using the principle of self similarity to decide where to place good boundary points segmenting the data.
+
+To do this we first apply SFA to the data, then construct a fitting similarity matrix from the gained slow features, apply spectral clustering to this similarity matrix, and finally find boundary points based on this clustering.
+\ednote{Is this enough of a transition?}
+\ednote{Somewhere we need to get the dimensionality reduction as preprocessing in.}
 \subsection{Slow Feature Analysis}
 \ednote{Find Paper to cite for slow feature analysis: Probably using this one: http://ieeexplore.ieee.org/document/6790128/}
 We base our description on SFA on \ednote{add citation here}.
@@ -72,7 +83,8 @@ Thus when considering using DTW, we use several tricks to reduce the time needed
 
 We first use some insight about the structure of our feature vectors $v(t)$. Notably we use that our vectors $v(t)$ consist of subvectors $G(t)=(g_1(t) \ldots g_{num_{feature}}(t))$. Since $g_i$ are separate orthogonal features, we expect that the transition from $g_{num_{feature}}(t)$ to $g_1(t+1)$ would have no similarities. \ednote{Ehh this doesn't really work. I want something like any DTW path would go diagonally here} Thus it is theoretically sound to use $d_{dtw}(v_(t),v^*(t0)=\sum\limits_{i=0}^{num_{feature}} d_{dtw} (G_i(t),G^*_i (t))$, i.e. we are only aligning the same features to each other. This reduces the complexity to $O(num_{feature}num_{time}^2)$, which is a significant gain. 
 
-The final trick that we use is that we are mostly interested in local similarities, as we have to find boundary points that separate neighboring clusters and thus it is not as important how similar two feature vectors at the end and the start are, it is much more important to know how similar close points are. Thus the idea is that for close vectors, we use the superior DTW distance, and for far away vectors, we use euclidean distance. 
+The final trick that we use is that we are mostly interested in local similarities, as we have to find boundary points that separate neighboring clusters and thus it is not as important how similar two feature vectors at the end and the start are, it is much more important to know how similar close points are. Thus the idea is that for close vectors, we use the superior DTW distance, and for far away vectors, we use euclidean distance, or even set them to $0$ altogether. 
+
 \ednote{lko: I have to rethink whether I want to use standard euclidean distance, or piecewise taxicab. I know what's meant}
 A useful property of DTW distance that we use here is that $d_{dtw}(x,y)\leq d_{euclidean}(x,y) \forall x,y$, since  the DTW path would at worst be just the diagonal \ednote{lko: not happy about this but have raid now.}. Thus $e^{-d_{dtw}(x,y)}\geq e^{d_{euclidean}(x,y)}$, i.e. we possibly make distant points less similar than they should be. This is potentially an upside, as it reduces the chance of clustering techniques giving distant points the same clustering, which can make finding accurate boundary points difficult.
 
@@ -86,7 +98,7 @@ We choose to use spectral clustering because it is simple to implement, is based
 
 There are several different variants of this technique, varying in the choice of similarity matrix and whether they normalize eigenvectors/values or not. However at their heart, they all follow the same sequence of steps.
 
-Given a similarity matrix $s \in \mathbb{R}^{T\cross T}$ and a number $k$ of desired clusters, we first start by computing the unnormalized Laplacian $L=D-S$, where $D$ is the diagonal of $S$.
+Given a similarity matrix $S \in \mathbb{R}^{T  T}$ and a number $k$ of desired clusters, we first start by computing the unnormalized Laplacian $L=D-S$, where $D$ is the diagonal of $S$.
 
 Next we compute the $k$ eigenvectors corresponding to the smallest $k$ eigenvalues \ednote{lko: Do we repeat $k$ here? Not sure if necessary or stylitically nice} $u_1,\ldots,u_k$ of $L$, which we use to construct the matrix $U\in \mathbb{R}^{T \times k}$, which has the eigenvectors $u_i$ as columns.
 
@@ -112,7 +124,7 @@ E(b_1,\ldots,b_k)=\sum_{i=1}^T \delta_{g(t),c(t)}
 \]
 where $\delta_{i,j}$ is the Kronecker delta \ednote{check if spelling is correct}. Thus for a set of boundary points, we are simply checking how many points would be misclassified if we compare the clustering we get from spectral clustering to the clustering imposed by these boundary points.
 
-This leads us to the optimization problem of finding the minimum $\b_1^*,\ldots,b_k^*$ with 
+This leads us to the optimization problem of finding the minimum $b^*_1,\ldots,b^*_k$ with 
 \[
 b_1^*,\ldots,b_k^*=\argmin_{b_1,\ldots,b_k} E(b_1,\ldots,b_k) 
 \]
