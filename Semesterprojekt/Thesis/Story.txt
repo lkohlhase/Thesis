@@ -1,0 +1,131 @@
+
+INTRODUCTION
+What we do: Automatic segmentation using SFA and similarity based method. Possibly online.
+
+Reason for need for segmentation: (automatic as well)
+
+Lots of new ways to record things, especialy motion (cameras in every phone etc.). Thus if we want to be able to do things with it, need good tools for dealing with it.
+Need good data to train other things. It's important to be able to recognize hand gestures for examples. To train, we need good samples. Segmenting stuff can lead to good samples.
+Also, there's way too much data that it'd be remotely feasible to segment by hand, so we need things to be automatic. 
+If we want to gain understanding of how a timesequence works, automatically splitting it into components might be useful. Potentially seeing when one motion starts and another ends might be hard for humans, but easy for machines.
+
+Not only human motion, potentially we'd be interested in motions of spiders or robots or something. Or waves, heartbeats idk. 
+
+Additionally, we want things to be online so that we can potentially do things directly when they happen.
+
+A lot of approaches have been done, (some citations here, no detail) but they are generally specialized and optimized to work on specific data, such as hand or more generally human motion. 
+
+SFA is a very generalizable technique, that's been shown to work well for a bunch of different data (don't have papers to back this up yet), and is general cool for preprocessing things.
+Additionally, online versions of it exist, and work kinda well. (Need some online SFA paper, I think I know where to find it). 
+
+Thus we propose using SFA as preprocessing, and then similarity based methods. 
+
+We will first start with a more direct look into the work that has already been done in the area, then describe the general steps of the method we'd want to use, then look at the specifics and choices of several ways to implement algorithm, then compare with other results.
+
+
+
+RELATED WORK 
+Fill out for each ot the different papers, still need to steal from other papers here, and then classify them somehow. Needs to still be done, I have good ideas where to get the other papers from, but this is probably the biggest step left.
+
+General Method:
+We preprocess the data a bit, throw SFA at it, make similarity matrix, use spectral clustering on similarity matrix, then find the boundaries. We go through each of the steps in order in detail
+
+preprocessing (currently writing nothing on it, not sure)
+
+Main form of preprocessing is using SFA.
+SFA
+	conditions (what problem is it solving)
+	how do you do it
+	(maybe write down actual algorithm, probably not)
+
+We use the features to construct similariy matrix (ez transition ez thesis)
+Similarity matrix
+	what are they
+	DTW versus Euclidean
+
+We have similarity matrix, we use that in spectral clustering (ayyyyyyyyyy transition so gooot)
+
+Spectral Clustering
+	Why choose it (kinda fits nicely with SFA, very similar method)
+	What is it, what are the steps. (maybe write down actual algorithm, maybe not.)
+
+Find decision boundaries
+	What are we looking for (description of decision boundaries and their role) (maybe that's part of the transition, not sure)
+	What are we looking for (minimize error function)
+	Trivial for 2 or 3, hard for more.
+
+The decision of how many decision boundaries  you need is key for the several different approaches we have, so we will handle it there. 
+
+SPECIFIC APPROACHES
+Mainly three crystallized, we present them in order of most batch, inbetween, and fully online. (Not sure this is the angle we want to take)
+
+full batch
+	Repeat the general steps from before, we do that for the whole data, and cluster the data into an appropriate number of clusters, as we expect to find
+	Two questions that need to be answered: How many things to we cluster things into (not necessarily known) and how do we find boundaries.
+	How can we answer second question? Must define what good boundaries are, then apply that. So to find out how many clusters we want, we find boundaries and evaluate them.
+	Good boundaries are if you hit the predefined ones well. Take best found boundaries, make sure no ground truth is missed.
+	So to answer second question, we have to answer first question, how do we find boundaries.
+	Find boundaries
+		stupid method
+			algorithm
+		stupid method seems stupid
+		enchanced k-means
+			choice of metric
+			get boundaries from centers
+			algorithm
+	How many clusters should we use?
+		Answered by diagram, better to choose too high		
+	Choice of similarity matrix
+		Pure solutions don't work super well
+		This is good, cause they're expensive anyway
+	Random heuristics
+		2 to improve clustering result
+		2 to evaluate clustering
+			turned out to be useless
+
+
+Okay the question that we would have to answer if we wanted to use the full batch version of this is: HOw many clusters should I take (Assume we have no knowledge about the data at all) ?
+How about, we sort of very implicitly answer this question: We know about how big the individual segments can get (not too small, not too big), so how about we use this knowledge to dothings?
+
+mini batch
+General idea: We have some windowsize. Look at window of size windowsize, find boundary in there (using batch and splitting into 2), new window is found boundary to found boundary+windowsize. Conveniently can be used well inan online manner
+
+This makes a lot of things easier, matrix choice doesn't matter, since all the offdiagonal shenanigans are unnecessary (implicitly we're doing that already by choosing a smaller window).
+We always cluster into 2 regardless, and that allows us to just try out all boundaries and find the best one.
+Big question is though: How do we choose the window size?
+	Answered by diagram, too small is way way worse than right windowsize, way too big sometimes skips a boundary, a bit too big seems to be generally fine.
+General stuff, how does it deal with propagating errors (if we choose one boundary wrong, next window is gonna be weird) (Seems to deal with it semi okay, as long as the next window includes relevant boundary points)
+
+Triple double
+	Take one window with windowsize, take one window with windowsize*1.5, look for 1 boundary in window 1, look for 2 boundary in window 2, take the boundary that they coincide on. 
+	Does sort of the same stuff as the other one, deals a bit better with strongly varying real windowsizes.
+
+Automatically vary windowsize (sometimes we got boundary at 0, which is obviously shit. In that case we increased windowsize)
+
+This leads well into next approach: The hard question from a starting perspective here is: What windowsize to we take for minibatch? 
+How about we automatically choose the size of the window based on some quality criteria?
+
+Fully online
+Same as minibatch, except we start with some windowsize, and then increase that until some degree of goodness is reached (Essentially if quality of clustering resulting from that window is good)
+Question that would have to be answered is: How good is a windowsize? 
+One way to answer that is how good is the boundary resulting from it.
+To do this we'd have to be able to answer the question hwo good is a clustering. We made an attempt earlier, but that didn't work.
+
+If there's some good solution, this would be a cool approach to try, but atm no clue if there's a good way to do it.
+(Need to put in somewhere that now, with dynamically increasing windowsize, it would make sense to do the SFA preprocessing part with incrementalSFA)
+
+
+
+RESULTS 
+DAta still needs to be made.
+Comparison with other algorithms, from other papers etc.
+Comparisons that need to be made: All 3 full methods from me veruss other stuff
+What does SFA part of it do, (SFA as preprocessing for other algorithms, our algorithms without SFA (replace with some other way to reduce dimensionality))
+Comparison on real data versus toydata, possibly find different iterations of what it's better on versus others. 
+
+Conclusion 
+
+who knows.
+
+
+

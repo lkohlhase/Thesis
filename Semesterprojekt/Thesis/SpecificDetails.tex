@@ -185,9 +185,81 @@ We can see some scores provided to clusterings in diagram \ednote{add diagram an
 An alternative avenue of implicitly finding how many clusters is provided by our next approach.
 
 \subsection{Mini Batch}
-Take fixed window sizes, find one boundary, work from there. 
-\subsection{Full Online}
+The main idea behind this approach is based on the fact that the most successful similarity matrices for the previous approach were the ones with $0$ everywhere but on a stretch around the diagonal. 
+
+Similarly, we could look at a window of a certain fixed size, equivalent to the width of the non zero part around the diagonal, and then look for one boundary on this small window. We can then repeat this process, with a new window of the same size being considered, starting from the previous boundary. Eventually, the entire time sequence will be covered, at which point the algorithm will terminate.
+
+As before, there are some key questions that need to be answered. First we have similar questions that we needed to answer for the previous algorithm, how do we choose boundaries, and what windowsize is appropriate. Additionally, there is a possible concern of propagating errors, if we find one boundary wrong, we will use an inappropriate window to find the next boundary, which might be wrong again, and so on and so forth.
+
+We will answer these questions in the order that we stated them, as again, we need to know how to find boundaries to evaluate the results of different windowsizes, and we'd need to have appropriate windowsizes to answer how/whether errors propagate.
+
+In contrast to the previous situation, where we had to find many boundaries, in this case we only need to find a single boundary. Thus we can simply try out every single boundary, and pick the best one, without it being prohibitively expensive. Thus for a given window $[i,i+windowisze]$, with a list of clustering labels $c_1,\ldots,c_{windowsize}$, we choose the boundary $b$ according to
+\[
+b=\argmin_{b} \sum\limits_{j=1}^{b} \delta_{0,c_j} +\sum\limits_{j=b+}^{windowsize} \delta_{1,c_j}
+\]
+We assume without loss of generality that the list of labels is ordered so that the average $0$ is earlier than the average $1$. Thus we are simply checking which list of $0$ until $b$ and $1$ afterwards is the closest to the original list of cluster labelings.
+\ednote{As always, check for consistency of naming}
+
+To answer the question about windowsizes, we first look at the question from a theoretical perspective. We consider some sample with segments each being about $w$ apart. What are the things we want to achieve with a window? We need to include the boundary that we want to find. We would like to not include any other boundary than the one we want to find. Finally we consider the amount of points available to find a boundary. If a boundary has many points on both sides of it, there are many points available to find it, thus we say it has much support. Thus we want the boundary we intend to find to have much support, while any unnecessary boundary should have less support.
+
+In our theoretical inspection, we consider four different windowsizes, $w_1=1.5*w$, $w_2=2*w$, $w_3=2.5*w$, and $w_4=3*w$, and consider three different previous boundaries. The first previous boundary is $w/2$ behind the boundary it was intended to find, the previous boundary in the second situation is exactly on the boundary it was supposed to find, and the final previous boundary is $w/2$ ahead of where it was supposed to be. Thus the first and third previous situations have the maximum error in the previously found boundary, while the second one have the previous boundary found perfectly.
+
+\ednote{Is this understandable?}
+For the first situation, finding either the first boundary, the one that was previously undershot, or finding the second boundary, would be good outcomes, depending on whether our goal is not to miss any boundaries, or on finding all boundaries with the least amount of cutting points. If we use a windowsize of $w_1$, the window includes the previous boundary, and ends at the next boundary. If we use $w_2$, the window includes the first boundary, the second boundary and ends $w/2$ after the second boundary. If we use $w_3$, the window includes the first boundary, the second boundary, and ends at a third boundary. If we use $w_4$, the window includes the first, second and third boundary, and ends $w/2$ after the third boundary.
+
+ Thus, for $w_1$, the included boundary is the one we had previously missed, and it has maximal support. For $w_2$, both the first and second boundary are included, with equal support. Hence, we would prefer $w_1$ to $w_2$, since it would be more consistent. For $w_3$, we include the first boundary and the second boundary, however the second boundary has a lot more support, thus it should normally find the second boundary. For $w_4$, we have a similar situation, except we also include the third boundary, but with little support.
+
+Hence if we previously chose a boundary too early, we would prefer to use $w_1$ or $w_3$, over $w_2$ or $w_4$.
+
+In the second proposed situation, the boundary we want to find is the first available one. If we choose a windowsize of $w_1$, it will include that boundary, with less support than if we have chosen $w_2$. If we choose $w_3$, we include the first boundary and the second boundary, however the support for the first boundary is higher than for the second boundary. If we choose $w_4$, we include the first and second boundary, with equal support for both. Thus in this situation we would prefer $w_2$ and $w_3$ over $w_1$, which we would prefer over $w_4$.
+
+Finally, if we consider the situation where the previous boundary overshot the mark, we again have a similar situation to the first one, where we want to either find the first or second boundary, depending on preferences. Thus if we choose $w_1$, we include only the first boundary, if we choose $w_2$, we include the first and second boundary with equal support, if we choose $w_3$, we include the first and second boundary, with more support for the second boundary. Finally, if we choose a windowsize of $w_4$, we include the first, second, and third boundary, with equal support for the first and third boundary, but maximal support for the second boundary. Hence we would prefer windowsizes of $w_1$ or $w_3$, over $w_2$ or $w_4$.
+
+If we consider all three situations equally likely, we conclude that choosing $w_3$, aka a slightly too large windowsize is the safest, since it will always include enough points that at least one boundary has full support. If we are sure that we never choose a boundary badly, choosing $w_2$ is the best bet. If we sometimes choose a boundary badly and want to make sure that every boundary is found, then $w_1$ is the best choice.
+
+\ednote{Do the same conclusions but for different windowsizes. Afaik it was w_2 good on toydata with regularity, other better for irregular sizes, and w3 best for real data}
+
+We can use the same diagrams to answer the question on whether/how errors propagate. \ednote{Actually get diagrams and do it, I don't really remember tbh}
+
+\ednote{put in pseudocode for minibatch here}
+
+We can see that for datasets with big differences in windowsizes, we often had trouble finding good boundaries \ednote{lko: Take a look at this again when you fill in the previous part.}, especially due to compounding errors. We tried several approaches to combat this.
+
+One of the approaches we tried, which we called the doubletriple \ednote{find out if there's some cooler way, that's what I called it} , is based on the idea that the possible errors in finding boundaries is based on not having sufficient support to find it. Suppose we use two separate windowsizes $w_1$ and $w_2=w_1*1.5$, then we would expect to find one boundary in the first window and two boundaries in the second. If the one boundary found in $w_1$ has bad support, then it should have more support in $w_2$, thus if we look for two boundaries in $w_2$, we should find the boundary for $w_1$ as well. Since the actual boundary in $w_1$ would have had some support, we expect the boundary found by looking in $w_1$ to be close to the actual boundary, closer to it than to the second boundary found in $w_2$.
+
+Thus we could use the boundaries $b_{11}$, $b_{21}$, and $b_{22}$ found in $w_1$ and $w_2$ as a committee. We expect the actual boundary $b^*$ in $w_1$ to be close to either $b_{21}$ or $b_{22}$ and we expect $b_{11}$ to be closer to $b^*$ than to the worse of $b_{21}$ and $b_{22}$. Thus our strategy becomes clear. We choose as boundary the center between $b_{11}$ and $b_{2}$, where $b_2=\argmin_{i} |b_{11}-b_{2i}|$. 
+
+\ednote{pseudocode/algorithm for this here}
+\ednote{Put diagram here and text explaining it. As far as I can remember, this should still be semi bad for some things.}
+
+One problem that we faced for both tripledouble and standard minibatch, was that sometimes the optimal boundary found, was located at zero, the very start of the window. In the next step, we would consider the same window again, and come to the same conclusion again and so on and so forth. To combat this, we increased the windowsize by $20\%$ anytime we encountered a boundary at $0$, thus eventually increasing the window to large enough that a nonzero boundary was found, in which case we reverted to the same windowsize as before.
+
+This points us in the direction of the next possible approach. Minibatch has the largest deficiency when dealing with strongly varying segment sizes or when we have a badly chosen default windowsize. If we were able to dynamically choose the windowsize, we would be able to get around these issues entirely. 
+
+\subsection{Full Online Segmentation}
+In this section we outline a possible way to make a fully online of our approach work.
+
+As alluded to previously, the idea would essentially be to use minibatch, but with variable windowsizes. You would start with a candidate windowsize, evaluate whether it was a good windowsize, if yes, choose that windowsize, if no take a larger window, and repeat the process of evaluation. Once a windowsize is chosen, we would proceed similarly to minibatch, so first we'd find a boundary, and then proceed with a new window starting from that boundary.
+
+To make this proposed algorithm work, the question that needs to be answered is how do we evaluate a window. What makes a window a good size for clustering?
+
+Previously we had already decided that a windowsize that leads to a clustering with a boundary at $0$ is a bad windowsize. Potentially we could expand on this by considering a window good, if it leads to a good clustering/good boundaries.
+
+There has been a lot of work done on the quality of clustering \ednote{Check the paper I have in reference papers for citations.}, however they've been focussed on evaluating the quality of a clustering on a given set of data versus other clusterings on the same data, not necessarily comparing two clusterings on expanded sets of data. 
+
+We have previously tried our own metrics for clustering quality \ednote{put references to algorithms}, but they have shown to be unsuitable.
+
+\ednote{We can do this discussion further I guess}
 \ednote{possibly not gonna happen, remove subsection later if necessary}
-Essentially minibatch, but happy once a certain quality is reached.
+
+If we manage to resolve the question how to evaluate the quality of a window, there is another opportunity to improve the algorithm. Since we potentially would propose and reject many windows in the run of using this, we would potentially have to do SFA on the same dataset many times over, as every new window by necessity includes the old window.
+
+This means that using an online variant of SFA, such as \ednote{add citations to the two incsfa papers}, becomes possible. This would mean that we would just need to update the slow features with the new data, and not recompute the entirety from scratch.
+
+Additionally, one feature of these incremental SFA algorithms is that the old feature values are unchanged, thus we would just have to compute a new row of the similarity matrix, again not having to recompute the entire thing from scratch.
+
+Finally, incremental spectral clustering algorithms exist, \ednote{find citation for it} which allows us to do every step of our approach aside from finding the clusters themselves in an almost completely online fashion. 
+
+\ednote{Try to make a shitty version of this work.}
 \subsection{Parameters}
 Reducenumber, number of features used. Delta and amount of features used for distance matrix. Distance measure (dtw versus just standard versus lazy as fuck :D )
