@@ -1,18 +1,42 @@
 \section{Introduction}
 
 \ednote{Make Introduction}
-\subsection{Related Work}
 Standard related work stuff here
 \ednote{Start Related Work here}
 Especially in recent years, the development and widespread use of devices to record and process motion data, such as smartphones with cameras, cars with automatic GPS tracking, or public CCTV cameras, has lead to a need for techniques for motion analysis, recognition and synthesis.
 
 These techniques have applications in fields as diverse as entertainment \ednote{should I add examples for each? I can think of some}, industry, healthcare, and research. This diversity and the sheer quantity of data has necessitated that techniques are efficient, unsupervised, and produce high quality, accurate results.
 
-One of the desired capabilities is \ednote{One ofthe things we want to do, but phrased better, I think this is awkward} is automatic motion segmentation. It is interesting for two main reasons. For one, being able to tell when a motion changes is interesting in and of itself, imagine a better on a horse race wanting to know when a horse starts galloping versus cantering. The other reason is that automatic motion segmentation is is crucial for developing training data for other techniques such as motion recognition. The amount of samples required alone makes costly manual segmentation unfeasible, and additionally we would like accurate, standardized models of training data.
+One of the desired capabilities is \ednote{One of the things we want to do, but phrased better, I think this is awkward} is automatic motion segmentation. It is interesting for two main reasons. For one, being able to tell when a motion changes is interesting in and of itself, imagine a better on a horse race wanting to know when a horse starts galloping versus cantering. The other reason is that automatic motion segmentation is is crucial for developing training data for other techniques such as motion recognition. The amount of samples required alone makes costly manual segmentation unfeasible, and additionally we would like accurate, standardized models of training data.
 
-What are the properties that our automatic segmentation should have? 
+What are the properties that our automatic segmentation should have? First, we have the obvious properties: It should be efficient and it should provide a good segmentation, that is it should align to manual clustering if possible. Additionally, it would be beneficial if we could use one segmentation algorithm for nearly all data, with minimal tuning of parameters. Finally, it would be a great boon if our automatic segmentation was able to function in an online fashion, allowing us to work on data as it comes in, instead of having to wait for all of it or having to recompute the entire thing for every incoming datapoint.
+
+Slow Feature Analysis (SFA) is a technique that has seen much use in visual recognition \ednote{I canprobalby find citations for this somewhere, it is well known}. Since it reduces the dimensionality of data by just taking the slowest features, has almost no conditions on what datasets it will work on, and has online implementations, we suggest that it might be a useful tool for segmentation as well, since it fulfills three of the four desired properties for automatic segmentation. 
+
+In this thesis \ednote{standard phrasing owuld be paper, but it's a thesis? :thinking:} we first describe the related work on segmentation in Section \ref{Related}, then describe the basic steps of an algorithm to segment data using SFA as preprocessing in Section 3 \ednote{add actual reference here}. In Section 4 \ednote{and reference here obviously} we describe specific details and choices for three variants of the basic algorithm, and then compare the results to data from other algorithms in Section 6 \ednote{add reference to results here}. Finally we pass judgement on whether shit works \ednote{No clue what to write for this sentence tbh.}
+\section{Related work}
+\label{Related}
+There has been a lot of work done on segmenting motions, ranging from different fields like computer graphics/visual recognition to machine learning. \ednote{to we want to cite sample papers from those fields?} 
+
+V{\"o}gele et al. \ednote{is this proper? I just took one of the names.} construct a neighborhood graph and partition the data according to self-similar structures found in this neighborhood graph in \cite{EfficientUnsupervised}. They later cluster them temporally to find motion primitives. A similar approach is taken by  \cite{Handsegmentation}, but with parameters optimized for segmenting hand motion data.
+
+In \cite{facialsegmentation} the data points are clustered using spectral methods, respecting some invariances to geometric transformation. Then facial gestures are identified as different combinations of clusters.
+
+Desobry et. al \ednote{again check if this is the proper format} create an immediate future, and an immediate past set of data points, and create a model respectively. If these models differ significantly, they use it as a boundary for segmentation, in their approach detailed in \cite{OnlineKernelChange}. 
+
+A similar class of algorithms are based on switching linear dynamic systems (SLDS), as the name suggests the data points are approximated by several linear maps, and we segment when they have changed. Techniques like this are used in \cite{RepetitiveMotionAnalysis}, and \cite{NonparametricBayesian}. \ednote{check if these actually fall under it}
+
+Zhou et. al outline a new approach they call Aligned Cluster Analysis (ACA) in \cite{ACA}, which is based on using kernel k-means clustering with variable number of features. They use DTW-distance for clustering and later expanded on the approach in \cite{HACA}.
+
+A wholly different approach is used in \cite{StatisticalAnalysis}, a distance measure is defined on sequences, which is then used to segment timeseries. The local maxima of the distance function serve as boundaries for segmentation.
+
+Two algorithms relying on similar techniques, PCA and SVD, are presented in \cite{Barbic:SegmentMotionCapture} and \cite{Spatiotemporal} repectively. In the first, they segment when the dimensionality of the PCA data changes, in the second they use k-SVD on motion flow data, and then detect discontinuities for segmentation.
+
+In \cite{MotionImageSegmentation}, a global measure of the quality of clustering is defined, respecting the temporally aligned nature of segmentation, which is then optimized using dynamic programming.
+
+A bayesian approach is used by \cite{hangingDependencyStructure}, computing the probability of a given segmentation as the product of the individual probabilities of its component segments, and finding an approximation of the optimum in a dynamic programming procedure.
+
+Finally, an online approach is outlined in \cite{OnlineAlgorithmforSegmentation}. It takes an offline algorithm and transforms it into an online version by looking at small to mid size windows and then moving this window, just as you would in a fully online approach.
 
 
 
-\ednote{Make Transition nicer}
-SFA is nice, for reasons (universality), and it is also an unsupervised technique to get some classification data from a timeseries. Thus we want to try to use it for segmentation of timeseries data as well.
