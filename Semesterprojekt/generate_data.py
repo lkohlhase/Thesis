@@ -11,7 +11,7 @@ import random
 import pickle
 
 
-def coswave(length, reps, noise=0.01):
+def coswave(length, reps, noise=0.0001):
     '''
 
     :param length: Amount of points that the wave should consist of
@@ -23,10 +23,10 @@ def coswave(length, reps, noise=0.01):
     stepsize=end/(length-1.)
     wave=[]
     for i in range(length):
-        wave.append((i,-np.cos(i*stepsize)*0.5+0.5+np.random.normal(0,noise)))
+        wave.append(-np.cos(i*stepsize)*0.5+0.5+np.random.normal(0,noise))
     return wave
 
-def trianglewave(length,reps,noise=0.01):
+def trianglewave(length,reps,noise=0.0001):
     '''
 
     :param length: Amount of points that the wave should consist of
@@ -38,17 +38,17 @@ def trianglewave(length,reps,noise=0.01):
     wave=[]
     stepsize=end/(length-1.)
     for i in range(length):
-        wave.append((i,1.-abs(1-2*i*stepsize%2)+np.random.normal(0,noise)))
+        wave.append(1.-abs(1-2*i*stepsize%2)+np.random.normal(0,noise))
     return wave
 
-def zigzagwave(length,reps,noise=0.01,wavefactor=0.3):
+def zigzagwave(length,reps,noise=0.0001,wavefactor=0.3):
     minilength=length/reps
     miniwave=trianglewave(length,reps*7,noise=0.0001)
     mainwave=trianglewave(length,reps,noise=noise)
-    output=[miniwave[i][1]*wavefactor+mainwave[i][1] for i in range(len(miniwave))]
+    output=[miniwave[i]*wavefactor+mainwave[i] for i in range(len(miniwave))]
     return output
 
-def stepwave(length,reps,noise=0.01):
+def stepwave(length,reps,noise=0.0001):
     stepamount=3
     listerino=[]
     for i in range(length):
@@ -59,7 +59,7 @@ def stepwave(length,reps,noise=0.01):
     return listerino
 
 
-def rectwave(length,reps,noise=0.01):
+def rectwave(length,reps,noise=0.0001):
     '''
 
     :param length: Amount of points that the wave should consist of
@@ -73,9 +73,9 @@ def rectwave(length,reps,noise=0.01):
     for i in range(length):
         current=i*stepsize%1
         if current <0.5: #going straight up
-            wave.append((i,np.random.normal(0,noise))) #going up
+            wave.append(np.random.normal(0,noise)) #going up
         else:
-            wave.append((i,1+np.random.normal(0,noise))) #straight at 1
+            wave.append(1+np.random.normal(0,noise)) #straight at 1
 
     return wave
 
@@ -90,11 +90,11 @@ def multiblock(typeslist,length,reps,noise=0.01):
     typelists=[]
     for i in typeslist:
         if i=='rect':
-            typelists.append([i[1] for i in rectwave(length,reps,noise)])
+            typelists.append([i for i in rectwave(length,reps,noise)])
         elif i=='triangle':
-            typelists.append([i[1] for i in trianglewave(length, reps,noise)])
+            typelists.append([i for i in trianglewave(length, reps,noise)])
         elif i=='sine':
-            typelists.append([i[1] for i in coswave(length, reps, noise)])
+            typelists.append([i for i in coswave(length, reps, noise)])
         elif i=='zigzag':
             typelists.append([i for i in zigzagwave(length,reps,noise)])
         elif i=='step':
@@ -190,6 +190,12 @@ def parse_segmentation(filename):
 
 segmentations=parse_segmentation('86/mocap.txt')
 
+cmuboundaries={}
+for key in segmentations:
+    newkey=key.split(' ')[-1]
+    newkey=int(newkey)
+    cmuboundaries[newkey]=[1]+[x['middle'] for x in segmentations[key]]
+
 def simmatrix1(numfeatures, testerino, timesteps):
     '''
     Makes a similarity matrix using inner product from slow feature data, using $numfeatures$ features, and $timesteps$ timesteps to make comparison vectors
@@ -209,7 +215,7 @@ def simmatrix2(numfeatures,testerino,timesteps):
     :param numfeatures: Amount of features to be used for similarity matrix
     :param testerino: Calculated values of slow features
     :param timesteps: Amount of timesteps for comparison in similarity matrix
-    :return: Similarity matrix with similarity calculated using e^{-distance/delta}. Atm delta is set manually. Possibly can be changed to computed from data
+    :return: Similarity matrix with similarity calculated using e^{-distance/delta^2}. Atm delta is set manually. Possibly can be changed to computed from data
     '''
     vecmat=vectormatrix(numfeatures,testerino,timesteps)
     delta=0.4
@@ -268,7 +274,7 @@ def fastdtwmatrix(numfeatures,testerino,timesteps):
             if i<=j:
                 dtwsum=0
                 for k in range(len(vectors1)):
-                    dtwsum+=fasdtw.dtw(vectors1[k],vectors2[k],dist=lambda x,y:np.linalg.norm(x-y))[0]
+                    dtwsum+=fastdtw.dtw(vectors1[k],vectors2[k],dist=lambda x,y:np.linalg.norm(x-y))[0]
                 finalmatrix[-1].append(dtwsum) #setting finalmatrix[i][j]
             else:
                 finalmatrix[-1].append(finalmatrix[j][i])#We know this already exists, since j<=i and we've done all the [i][:]
@@ -438,7 +444,7 @@ def find_boundarieskmeans(binarylist,numclusters,clusterimportance):
 
     size=len(binarylist)/numclusters
     centers=[(i,size*i+size/2) for i in range(numclusters)] #Initial guess is evenly spread centroids. This should conform to our expectation
-    for i in range(10):
+    for i in range(25):
         clusters = [([],centers[i]) for i in range(numclusters)]
         for j in range(len(binarylist)):
             value=binarylist[j]
@@ -580,16 +586,265 @@ def findbestcenterapproach(binarylist,numclusters,windowsize):
         centers.append((bestcenter,bestcentervalue))
     return centers
 
+
+def ACAboundaries():
+    acaboundaries = {}
+    acaboundaries['truth'] = []
+    acaboundaries['gmm'] = []
+    acaboundaries['haca'] = []
+    acaboundaries['aca'] = []
+    for i in range(10):
+        sample=i+1
+        string='C:/Users/lkohlhase/Desktop/ACAData/rawboundaries'+str(sample)
+        f = open(string, 'r')
+
+        for line in f:
+            if 'Ground' in line:
+                identifier='truth'
+                wrongerino=True
+            if 'Gmm' in line:
+                identifier='gmm'
+                wrongerino=True
+            if 'HACA' in line:
+                identifier='haca'
+                wrongerino=True
+            elif 'ACA' in line:
+                identifier='aca'
+                wrongerino=True
+            if '1' in line:
+                wrongerino=True
+                acaboundaries[identifier].append(line.split(' ')[:-1])
+                acaboundaries[identifier][-1]=[int(x) for x in acaboundaries[identifier][-1]]
+    pickle.dump(acaboundaries,open('acaboundaries','wb'))
+
+def ACAboundaries2():
+    acaboundaries = {}
+    acaboundaries['truth'] = []
+    acaboundaries['gmm'] = []
+    acaboundaries['haca'] = []
+    acaboundaries['aca'] = []
+    for i in range(10):
+        sample=i+1
+        string='C:/Users/lkohlhase/Desktop/ACAData/featureACAboundaries'+str(sample)
+        f = open(string, 'r')
+
+        for line in f:
+            if 'Ground' in line:
+                identifier='truth'
+                wrongerino=True
+            if 'Gmm' in line:
+                identifier='gmm'
+                wrongerino=True
+            if 'HACA' in line:
+                identifier='haca'
+                wrongerino=True
+            elif 'ACA' in line:
+                identifier='aca'
+                wrongerino=True
+            if '1' in line:
+                wrongerino=True
+                acaboundaries[identifier].append(line.split(' ')[:-1])
+                acaboundaries[identifier][-1]=[int(x) for x in acaboundaries[identifier][-1]]
+    pickle.dump(acaboundaries,open('featureacaboundaries','wb'))
+
+def ACAboundaries3():
+    acaboundaries = {}
+    acaboundaries['truth'] = []
+    acaboundaries['gmm'] = []
+    acaboundaries['haca'] = []
+    acaboundaries['aca'] = []
+    for i in range(9):
+        sample=i+1
+        string='C:/Users/lkohlhase/Desktop/ACAData/realACAboundaries'+str(sample)
+        f = open(string, 'r')
+
+        for line in f:
+            if 'Ground' in line:
+                identifier='truth'
+                wrongerino=True
+            if 'Gmm' in line:
+                identifier='gmm'
+                wrongerino=True
+            if 'HACA' in line:
+                identifier='haca'
+                wrongerino=True
+            elif 'ACA' in line:
+                identifier='aca'
+                wrongerino=True
+            if '1' in line:
+                wrongerino=True
+                acaboundaries[identifier].append(line.split(' ')[:-1])
+                acaboundaries[identifier][-1]=[int(x) for x in acaboundaries[identifier][-1]]
+    pickle.dump(acaboundaries,open('realacaboundaries','wb'))
+
+def tsfareducedfive():
+    acaboundaries = {}
+    acaboundaries['truth'] = []
+    acaboundaries['gmm'] = []
+    acaboundaries['haca'] = []
+    acaboundaries['aca'] = []
+    for i in range(9):
+        sample=i+1
+        string='C:/Users/lkohlhase/Desktop/ACAData/treducedsfafive'+str(sample)
+        f = open(string, 'r')
+
+        for line in f:
+            if 'Ground' in line:
+                identifier='truth'
+                wrongerino=True
+            if 'Gmm' in line:
+                identifier='gmm'
+                wrongerino=True
+            if 'HACA' in line:
+                identifier='haca'
+                wrongerino=True
+            elif 'ACA' in line:
+                identifier='aca'
+                wrongerino=True
+            if '1' in line:
+                wrongerino=True
+                acaboundaries[identifier].append(line.split(' ')[:-1])
+                acaboundaries[identifier][-1]=[int(x) for x in acaboundaries[identifier][-1]]
+    pickle.dump(acaboundaries,open('treducedsfafive','wb'))
+
+def tsfareducedtwenty():
+    acaboundaries = {}
+    acaboundaries['truth'] = []
+    acaboundaries['gmm'] = []
+    acaboundaries['haca'] = []
+    acaboundaries['aca'] = []
+    for i in range(9):
+        sample=i+1
+        string='C:/Users/lkohlhase/Desktop/ACAData/treducedsfatwenty'+str(sample)
+        f = open(string, 'r')
+
+        for line in f:
+            if 'Ground' in line:
+                identifier='truth'
+                wrongerino=True
+            if 'Gmm' in line:
+                identifier='gmm'
+                wrongerino=True
+            if 'HACA' in line:
+                identifier='haca'
+                wrongerino=True
+            elif 'ACA' in line:
+                identifier='aca'
+                wrongerino=True
+            if '1' in line:
+                wrongerino=True
+                acaboundaries[identifier].append(line.split(' ')[:-1])
+                acaboundaries[identifier][-1]=[int(x) for x in acaboundaries[identifier][-1]]
+    pickle.dump(acaboundaries,open('treducedsfatwenty','wb'))
+def tsfareducedfull():
+    acaboundaries = {}
+    acaboundaries['truth'] = []
+    acaboundaries['gmm'] = []
+    acaboundaries['haca'] = []
+    acaboundaries['aca'] = []
+    for i in range(9):
+        sample=i+1
+        string='C:/Users/lkohlhase/Desktop/ACAData/treducedsfafull'+str(sample)
+        f = open(string, 'r')
+
+        for line in f:
+            if 'Ground' in line:
+                identifier='truth'
+                wrongerino=True
+            if 'Gmm' in line:
+                identifier='gmm'
+                wrongerino=True
+            if 'HACA' in line:
+                identifier='haca'
+                wrongerino=True
+            elif 'ACA' in line:
+                identifier='aca'
+                wrongerino=True
+            if '1' in line:
+                wrongerino=True
+                acaboundaries[identifier].append(line.split(' ')[:-1])
+                acaboundaries[identifier][-1]=[int(x) for x in acaboundaries[identifier][-1]]
+    pickle.dump(acaboundaries,open('treducedsfafull','wb'))
+
+def truetoydata():
+    acaboundaries = {}
+    acaboundaries['truth'] = []
+    acaboundaries['gmm'] = []
+    acaboundaries['haca'] = []
+    acaboundaries['aca'] = []
+    for i in range(9):
+        sample=i+1
+        string='C:/Users/lkohlhase/Desktop/ACAData/truetoydata'+str(sample)
+        f = open(string, 'r')
+
+        for line in f:
+            if 'Ground' in line:
+                identifier='truth'
+                wrongerino=True
+            if 'Gmm' in line:
+                identifier='gmm'
+                wrongerino=True
+            if 'HACA' in line:
+                identifier='haca'
+                wrongerino=True
+            elif 'ACA' in line:
+                identifier='aca'
+                wrongerino=True
+            if '1' in line:
+                wrongerino=True
+                acaboundaries[identifier].append(line.split(' ')[:-1])
+                acaboundaries[identifier][-1]=[int(x) for x in acaboundaries[identifier][-1]]
+    pickle.dump(acaboundaries,open('truetoydata','wb'))
+
+def truetoydatafeatures():
+    acaboundaries = {}
+    acaboundaries['truth'] = []
+    acaboundaries['gmm'] = []
+    acaboundaries['haca'] = []
+    acaboundaries['aca'] = []
+    for i in range(9):
+        sample=i+1
+        string='C:/Users/lkohlhase/Desktop/ACAData/truetoydatafeatures'+str(sample)
+        f = open(string, 'r')
+
+        for line in f:
+            if 'Ground' in line:
+                identifier='truth'
+                wrongerino=True
+            if 'Gmm' in line:
+                identifier='gmm'
+                wrongerino=True
+            if 'HACA' in line:
+                identifier='haca'
+                wrongerino=True
+            elif 'ACA' in line:
+                identifier='aca'
+                wrongerino=True
+            if '1' in line:
+                wrongerino=True
+                acaboundaries[identifier].append(line.split(' ')[:-1])
+                acaboundaries[identifier][-1]=[int(x) for x in acaboundaries[identifier][-1]]
+    pickle.dump(acaboundaries,open('truetoydatafeatures','wb'))
+
+truetoydatafeatures=pickle.load(open('truetoydatafeatures','rb'))
+truetoydata=pickle.load(open('truetoydata','rb'))
+treducedsfafull=pickle.load(open('treducedsfafull','rb'))
+treducedsfatwenty=pickle.load(open('treducedsfatwenty','rb'))
+treducedsfafive=pickle.load(open('treducedsfafive','rb'))
+acaboundaries=pickle.load(open('acaboundaries','rb'))
+featureacaboundaries=pickle.load(open('featureacaboundaries','rb'))
+realacaboundaries=pickle.load(open('realacaboundaries','rb'))
+
 # NOTE THIS IS NOT HACA
-othersegmentationstuff=[[137,145,285,314,488,534,615,628,817 ,1018]
-,[ 247,273,457,480,654,673,789,1178,1491,1510,1631,1803,1881,1974,2067,2212,2220,2384,2414],
-[10,233,471,487,609,618,847,877,971,1172,1339,1529,1571,1742,1779],
-[248,  572,  580,  834,  849, 1035, 1258, 1469, 1476, 1664, 1745, 1790, 1891, 1990, 2054, 2260, 2288],
-    [ 191,  202,  373,  416,  567,  818,  845,  971,  986, 1126 ,1140, 1292, 1459, 1639, 1837, 1853],
-    [6,  251,  399,  414,  624,  637,  786,  794,  970,  977, 1144, 1376, 1540, 1721, 1738, 1896, 1984, 2230, 2238],
-    [260,  287,  462,  479,  638,  650,  903,  915, 1103, 1117, 1287, 1312, 1417, 1435, 1517, 1741, 1945],
-[7,  272,  293,  464,  479,  663,  681,  826,  833,  987, 1195, 1221, 1402, 1417, 1586, 1789, 1800, 2027, 2047],
- [   248 ,  347 ,  526   ,538  , 714 ,  738  , 901   ,925]] #Cuts performed on samples 1-9 by HACA stuff 
+othersegmentationstuff=[[1,137,145,285,314,488,534,615,628,817 ,1018,1145]
+,[1, 247,273,457,480,654,673,789,1178,1491,1510,1631,1803,1881,1974,2067,2212,2220,2384,2414,2654],
+[1,10,233,471,487,609,618,847,877,971,1172,1339,1529,1571,1742,1779,2100],
+[1,248,  572,  580,  834,  849, 1035, 1258, 1469, 1476, 1664, 1745, 1790, 1891, 1990, 2054, 2260, 2288,2520],
+    [1, 191,  202,  373,  416,  567,  818,  845,  971,  986, 1126 ,1140, 1292, 1459, 1639, 1837, 1853,2080],
+    [1,6,  251,  399,  414,  624,  637,  786,  794,  970,  977, 1144, 1376, 1540, 1721, 1738, 1896, 1984, 2230, 2238,2485],
+    [1,260,  287,  462,  479,  638,  650,  903,  915, 1103, 1117, 1287, 1312, 1417, 1435, 1517, 1741, 1945,2175],
+[1,7,  272,  293,  464,  479,  663,  681,  826,  833,  987, 1195, 1221, 1402, 1417, 1586, 1789, 1800, 2027, 2047,2301],
+ [1,   248 ,  347 ,  526   ,538  , 714 ,  738  , 901   ,925,1200]] #Cuts performed on samples 1-9 by Efficient unsupervised algorithm.
 toydatashapes=['rect', 'triangle', 'sine','zigzag','step']
 # testdata=[0 for i in range(500)]+[int(random.random()*2) for i in range(200)]+[1 for i in range(500)]+[2 for i in range(500)]
 # print(find_boundarieskmeans(testdata,3,600))
@@ -608,5 +863,6 @@ toydatashapes=['rect', 'triangle', 'sine','zigzag','step']
 # testtestdaata=[1 for x in range(500)]+[3 for x in range(51)]+[1 for x in range(500)]+[2 for x in range(1000)]
 # asdf=clusteringheuristic1(testtestdaata,1000)
 # print(asdf[450:650])
+
 
 

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import random
 import sklearn.cluster as cluster
 import toydatatests
+import matplotlib.patches as patches
 import pickle
 import os
 import dtw
@@ -1073,17 +1074,987 @@ def smoltest4():
         plt.scatter(range(len(binarylist)), binarylist, marker='x')
 
         for i,boundary in enumerate(boundary1):
-            plt.scatter(boundary[0],[11],marker='.',c='red',s=(1-evaloneone[i])**2*1000+30)
-            plt.scatter(boundary[0],[15],marker='.',c='blue',s=(1-evalonetwo[i])**2*1000+30)
+            plt.scatter(boundary[0],[3.5],marker='.',c='b',s=250)
         for i,boundary in enumerate(boundary2):
-            plt.scatter(boundary,[19],marker='x',c='red',s=(1-evaltwoone[i])**2*1000+30)
-            plt.scatter(boundary,[23],marker='x',c='blue',s=(1-evaltwotwo[i])**2*1000+30)
+            plt.scatter(boundary,[6.5],marker='x',c='b',s=250)
         groundtruth2 = [point['middle']/4. for point in groundtruth]
         for point in groundtruth2:
-            plt.plot([point, point], [0, 5])
-        for point in haca:
-            plt.plot([point,point],[5,10])
+            plt.plot([point, point], [0, 11])
     plt.show()
+
+def smoltest5():
+    groundtruth = generate_data.segmentations['86 0' + str(8)]
+    clusternums=[len(groundtruth)-2, len(groundtruth)-1,len(groundtruth),len(groundtruth)+1,len(groundtruth)+2,len(groundtruth)+3]
+    plt.figure()
+    for i,numclusters in enumerate(clusternums):
+        reducenumber = 20
+        sfanode = mdp.nodes.SFANode()
+        expected_windowsize = 1000 / 4  # specific value for sample 8
+        euclidmatrix,fulldtwmatrix,hybridmatrix,euclidwith0s,dtwwith0s=generatematrices()
+        labels=['Full Euclidean','Full Dtw','Hybrid Euclidean and DTW','Euclidean with 0s','Dtw with 0s']
+        matrices=[dtwwith0s]
+        for distmatrix in matrices:
+            plt.subplot(len(clusternums)/2, 2, 1 * i + 1)
+            clusterer = cluster.SpectralClustering(n_clusters=numclusters, affinity='precomputed')
+            binarylist = clusterer.fit_predict(distmatrix)
+            binarylist = generate_data.reorder(binarylist)
+            binarylist=generate_data.reorder(binarylist)
+            binarylist=generate_data.clusteringheuristic1(binarylist,expected_windowsize)
+            binarylist=generate_data.clusteringheuristic2(binarylist,expected_windowsize,distmatrix)
+            boundary1=generate_data.findbestcenterapproach(binarylist,numclusters,expected_windowsize)
+            boundary2=generate_data.find_boundarieskmeans(binarylist,numclusters,expected_windowsize/2)
+            boundary12=[x[0] for x in boundary1[1:]]
+            plt.title(str(numclusters)+'/'+str(len(groundtruth)))
+            plt.scatter(range(len(binarylist)), binarylist, marker='x')
+
+            for i,boundary in enumerate(boundary1):
+                plt.scatter(boundary[0],[11],marker='.',c='red',)
+            for i,boundary in enumerate(boundary2):
+                plt.scatter(boundary,[19],marker='x',c='red')
+            groundtruth2 = [point['middle']/4. for point in groundtruth]
+            for point in groundtruth2:
+                plt.plot([point, point], [0, 5])
+    plt.show()
+def generate_features():
+    for i in range(10):
+        print(i)
+        sample=i+1
+        data,boundaries= generate_data.toydata2()
+        testdata = pca_reduce(data, 20)
+        sfanode = mdp.nodes.SFANode()
+        expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+        testdata2 = expansionnode.execute(testdata)
+        sfanode.train(testdata2)
+        sfanode.stop_training()
+        feature_values = sfanode.execute(testdata2, n=5)
+        np.savetxt('Logs/truetoydata'+str(sample),data)
+        np.savetxt('Logs/truetoydatafeatures'+str(sample),feature_values)
+        np.savetxt('Logs/truetoydataboundaries'+str(sample),boundaries)
+
+
+def windowsizetest3():
+    tobesaved = {}
+    boundariesmiddle2 = []
+    boundarieslower2 = []
+    boundariesupper2 = []
+    boundariesterrible2 = []
+    plt.figure()
+    numsamples = 7
+    for j in range(numsamples):
+        plt.subplot(numsamples, 1, j + 1)
+        boundariesmiddle2.append([])
+        boundarieslower2.append([])
+        boundariesupper2.append([])
+        boundariesterrible2.append([])
+        sample = j + 3
+        print('Working on sample ' + str(sample))
+        data = generate_data.readSample(sample)
+        transitions = generate_data.segmentations['86 0' + str(sample)]
+        transitions = [x['upper'] for x in transitions]
+        testdatamiddle = np.array([k for k in data[:transitions[1]]])
+        testdatalower = np.array([k for k in data[:(transitions[1] + transitions[0]) / 2]])
+        testdataupper = np.array([k for k in data[:(transitions[1] + transitions[2]) / 2]])
+        testdataterrible = np.array([k for k in data[:transitions[2]]])
+        print('Working on the right windowsize')
+        boundariesmiddle2[-1].append([])
+        reducenumber = 20
+        clusteringdata = GetClusteringFromData(testdatamiddle, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesmiddle2[-1][-1].append(clusteringdata[0])
+        boundariesmiddle = clusteringdata[0][0]
+        plt.plot(boundariesmiddle, 10, 'x')
+        plt.plot([0, 0], [0, 35])
+        plt.plot([transitions[0], transitions[0]], [0, 35], 'b')
+        plt.plot([transitions[1], transitions[1]], [0, 35], 'r')
+        print('Working on a too small windowsize')
+        boundarieslower2[-1].append([])
+        reducenumber = 20
+        clusteringdata = GetClusteringFromData(testdatalower, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundarieslower2[-1][-1].append(clusteringdata[0])
+        boundarieslower = clusteringdata[0][0]
+        plt.plot(boundarieslower, 15, '^')
+        plt.plot([0, 0], [0, 35])
+        plt.plot([transitions[0], transitions[0]], [0, 35], 'b')
+        plt.plot([transitions[1], transitions[1]], [0, 35], 'r')
+        boundariesupper2[-1].append([])
+        reducenumber = 20
+        print('Reducing from 62 to ' + str(reducenumber))
+        clusteringdata = GetClusteringFromData(testdataupper, numclusters=2, numfeatures=3, reducenumber=reducenumber, timesteps=20)
+        boundariesupper2[-1][-1].append(clusteringdata[0])
+        boundariesupper = clusteringdata[0][0]
+        plt.plot(boundariesupper, 20, 'v')
+        plt.plot([0, 0], [0, 35])
+        plt.plot([transitions[0], transitions[0]], [0, 35], 'b')
+        plt.plot([transitions[1], transitions[1]], [0, 35], 'r')
+        print('Working on a terrible windowsize')
+        boundariesterrible2[-1].append([])
+        reducenumber = 20
+        print('Reducing from 62 to ' + str(reducenumber))
+        clusteringdata = GetClusteringFromData(testdataterrible, numclusters=2, numfeatures=3, reducenumber=reducenumber, timesteps=20)
+        boundariesterrible2[-1][-1].append(clusteringdata[0])
+        boundariesterrible = clusteringdata[0][0]
+        plt.plot(boundariesterrible, 25, '*')
+        plt.plot([0, 0], [0, 35])
+        plt.plot([transitions[0], transitions[0]], [0, 35], 'b')
+        plt.plot([transitions[1], transitions[1]], [0, 35], 'r')
+        plt.plot([(transitions[2] + transitions[2]) / 2, (transitions[2] + transitions[2]) / 2], [0, 35], 'g')
+    plt.show()
+    tobesaved['boundariesmiddle'] = boundariesmiddle2
+    tobesaved['boundariesupper'] = boundariesupper2
+    tobesaved['boundarieslower'] = boundarieslower2
+    tobesaved['boundariesterrible'] = boundariesterrible2
+    pickle.dump(tobesaved, open('Logs/windowsizetest', 'wb'))
+def windowsizetest4():
+    numsamples=7
+    plt.figure()
+    for j in range(numsamples):
+        plt.subplot(numsamples,3,j*3+1)
+        reducenumber=20
+        sample = j + 3
+        print('Working on sample ' + str(sample))
+        data = generate_data.smoldata(sample)
+        transitions = generate_data.segmentations['86 0' + str(sample)]
+        transitions = [x['upper']/4 for x in transitions]
+        startpoint=transitions[0]
+        testdatamiddle = np.array([k for k in data[startpoint:transitions[2]]])
+        testdatalower = np.array([k for k in data[startpoint:(transitions[2] + transitions[1]) / 2]])
+        testdataupper = np.array([k for k in data[startpoint:(transitions[2] + transitions[3]) / 2]])
+        testdataterrible = np.array([k for k in data[startpoint:transitions[3]]])
+        plt.plot([startpoint,startpoint],[0,35],':')
+        plt.plot([transitions[0],transitions[0]],[0,35],'-')
+        plt.plot([transitions[1],transitions[1]],[0,35],'-')
+        plt.plot([transitions[2],transitions[2]],[0,35],'-')
+        plt.plot([transitions[3], transitions[3]], [0, 35], '-')
+        clusteringdata = GetClusteringFromData(testdatamiddle, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesmiddle = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesmiddle, 10, 'x',c='b')
+        clusteringdata = GetClusteringFromData(testdatalower, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundarieslower = clusteringdata[0][0]
+        plt.plot(startpoint+boundarieslower, 15, 'v')
+        clusteringdata = GetClusteringFromData(testdataupper, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesupper = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesupper, 20, '^')
+        clusteringdata = GetClusteringFromData(testdataterrible, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesterrible = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesterrible, 25, '*')
+    for j in range(numsamples):
+        plt.subplot(numsamples,3,j*3+2)
+        reducenumber=20
+        sample = j + 3
+        print('Working on sample ' + str(sample))
+        data = generate_data.smoldata(sample)
+        transitions = generate_data.segmentations['86 0' + str(sample)]
+        transitions = [x['upper']/4 for x in transitions]
+        startpoint=(transitions[0]+transitions[1])/2
+        testdatamiddle = np.array([k for k in data[startpoint:(transitions[2]+transitions[3])/2]])
+        testdatalower = np.array([k for k in data[startpoint:(transitions[2] + transitions[2]) / 2]])
+        testdataupper = np.array([k for k in data[startpoint:(transitions[3] + transitions[3]) / 2]])
+        testdataterrible = np.array([k for k in data[startpoint:(transitions[3]+transitions[4])/2]])
+        plt.plot([startpoint,startpoint],[0,35],':')
+        plt.plot([transitions[0], transitions[0]], [0, 35], '-')
+        plt.plot([transitions[1],transitions[1]],[0,35],'-')
+        plt.plot([transitions[2],transitions[2]],[0,35],'-')
+        plt.plot([transitions[3], transitions[3]], [0, 35], '-')
+        clusteringdata = GetClusteringFromData(testdatamiddle, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesmiddle = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesmiddle, 10, 'x',c='b')
+        clusteringdata = GetClusteringFromData(testdatalower, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundarieslower = clusteringdata[0][0]
+        plt.plot(startpoint+boundarieslower, 15, 'v')
+        clusteringdata = GetClusteringFromData(testdataupper, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesupper = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesupper, 20, '^')
+        clusteringdata = GetClusteringFromData(testdataterrible, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesterrible = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesterrible, 25, '*')
+    for j in range(numsamples):
+        plt.subplot(numsamples,3,j*3+3)
+        reducenumber=20
+        sample = j + 3
+        print('Working on sample ' + str(sample))
+        data = generate_data.smoldata(sample)
+        transitions = generate_data.segmentations['86 0' + str(sample)]
+        transitions = [x['upper']/4 for x in transitions]
+        startpoint=transitions[0]/2
+        testdatamiddle = np.array([k for k in data[startpoint:(transitions[2]+transitions[1])/2]])
+        testdatalower = np.array([k for k in data[startpoint:(transitions[1] + transitions[1]) / 2]])
+        testdataupper = np.array([k for k in data[startpoint:(transitions[2] + transitions[2]) / 2]])
+        testdataterrible = np.array([k for k in data[startpoint:(transitions[3]+transitions[2])/2]])
+        plt.plot([startpoint,startpoint],[0,35],':')
+        plt.plot([transitions[0], transitions[0]], [0, 35], '-')
+        plt.plot([transitions[1],transitions[1]],[0,35],'-')
+        plt.plot([transitions[2],transitions[2]],[0,35],'-')
+        plt.plot([transitions[3], transitions[3]], [0, 35], '-')
+        clusteringdata = GetClusteringFromData(testdatamiddle, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesmiddle = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesmiddle, 10,'x',c='b')
+        clusteringdata = GetClusteringFromData(testdatalower, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundarieslower = clusteringdata[0][0]
+        plt.plot(startpoint+boundarieslower, 15, 'v')
+        clusteringdata = GetClusteringFromData(testdataupper, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesupper = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesupper, 20, '^')
+        clusteringdata = GetClusteringFromData(testdataterrible, numclusters=2, numfeatures=5, reducenumber=reducenumber, timesteps=20)
+        boundariesterrible = clusteringdata[0][0]
+        plt.plot(startpoint+boundariesterrible, 25, '*')
+    plt.show()
+
+
+def toydatapaper(): #TODO rerun this. I am not willing to believe this is working correctly.
+    counter=logcounter('highvariancedata')
+    avgblocksize=500
+    variance1=0.33
+    variance2=0.66
+    variance3=0
+    tobesaveds=[]
+
+
+
+    for i in range(6):
+        print('In ' + str(i) + 'th iteration')
+        tobesaved={}
+        tobesaved['variance1'] = {}
+        tobesaved['variance2'] = {}
+        tobesaved['variance3'] = {}
+        tobesaved['variance1']['data'] = []
+        tobesaved['variance2']['data'] = []
+        tobesaved['variance3']['data'] = []
+        tobesaved['variance1']['boundaries'] = []
+        tobesaved['variance2']['boundaries'] = []
+        tobesaved['variance3']['boundaries'] = []
+        tobesaved['variance1']['scores'] = []
+        tobesaved['variance2']['scores'] = []
+        tobesaved['variance3']['scores'] = []
+        testdata1,rboundaries1=generate_data.toydata2(numblocks=10, noise=0.001, variance=variance1, numfeatures=20, blocksize=avgblocksize)
+        testdata2, rboundaries2 = generate_data.toydata2(numblocks=10, noise=0.001, variance=variance2, numfeatures=20, blocksize=avgblocksize)
+        testdata3, rboundaries3 = generate_data.toydata2(numblocks=10, noise=0.001, variance=variance3, numfeatures=20, blocksize=avgblocksize)
+        rboundariesrange1=[(x,(x-0.05*avgblocksize,x+0.05*avgblocksize)) for x in rboundaries1]
+        rboundariesrange2=[(x,(x-0.05*avgblocksize,x+0.05*avgblocksize)) for x in rboundaries2]
+        rboundariesrange3=[(x,(x-0.05*avgblocksize,x+0.05*avgblocksize)) for x in rboundaries3]
+        scalefactor = 1.2
+        print('Using scalefactor:'+str(scalefactor))
+        boundaries1=minibatch(testdata1,steplength=2*scalefactor*avgblocksize,numfeatures=5)
+        boundaries1=[x[0] for x in boundaries1]
+        print('Variance = '+str(variance1))
+        print(boundaries1)
+        print(rboundariesrange1[1:-1])
+        print('Score: '+str(boundaryevaluate(boundaries1,rboundariesrange1[1:-1])[0]))
+        print('Missed:'+str(boundaryevaluate(boundaries1, rboundariesrange1[1:-1]))[1])
+        tobesaved['variance1']['boundaries'].append(boundaries1)
+        tobesaved['variance1']['scores'].append(boundaryevaluate(boundaries1, rboundariesrange1[1:-1]))
+        boundaries2=minibatch(testdata2,steplength=2*scalefactor*avgblocksize, numfeatures=5)
+        boundaries2 = [x[0] for x in boundaries2]
+        tobesaved['variance2']['boundaries'].append(boundaries2)
+        print('Variance = '+str(variance2))
+        print(boundaries2)
+        print(rboundariesrange2[1:-1])
+        print('Score: '+str(boundaryevaluate(boundaries2,rboundariesrange2[1:-1])[0]))
+        print('Missed:'+str(boundaryevaluate(boundaries2, rboundariesrange2[1:-1]))[1])
+        tobesaved['variance2']['scores'].append(boundaryevaluate(boundaries2, rboundariesrange2[1:-1]))
+        boundaries3=minibatch(testdata3, steplength=2*scalefactor*avgblocksize, numfeatures=5)
+        boundaries3 = [x[0] for x in boundaries3]
+        tobesaved['variance3']['boundaries'].append(boundaries3)
+        print(boundaries3)
+        print('Variance = '+str(variance3))
+        print(rboundariesrange3[1:-1])
+        print('Score: '+str(boundaryevaluate(boundaries3,rboundariesrange3[1:-1])[0]))
+        print('Missed:'+str(boundaryevaluate(boundaries3, rboundariesrange3[1:-1]))[1])
+        tobesaved['variance3']['scores'].append(boundaryevaluate(boundaries3, rboundariesrange3[1:-1]))
+        tobesaveds.append(tobesaved)
+        pickle.dump(tobesaveds,open('Logs/highvariancedatavariablescalefactor','wb'))
+    print(tobesaved)
+
+def varianceanalysis():
+    starttime=time.time()
+    iterations=10
+    avgblocksize=500
+    scalefactor=1.2
+    variances=[0,0.06,0.12,0.18,0.24,0.3,0.36,0.42,0.48,0.54,0.6]
+    tobesaved={}
+    for variance in variances:
+        timer=time.time()
+        print("We're working on variance "+str(variance))
+        tobesaved[variance]={}
+        for i in range(iterations):
+
+            tobesaved[variance][i]={}
+            print("We're in iteration "+str(i))
+            testdata,rboundaries=generate_data.toydata2(numblocks=10, noise=0.001, variance=variance, numfeatures=20, blocksize=avgblocksize)
+            rboundariesrange=[(x,(x-0.05*avgblocksize,x+0.05*avgblocksize)) for x in rboundaries[1:-1]]
+            minibatchstart=time.time()
+            minibatchboundaries = minibatch(testdata, steplength=2 * scalefactor * avgblocksize, numfeatures=5)
+            minibatchend=time.time()
+            print('Minibatch took: '+str(minibatchend-minibatchstart))
+            batchboundaries=FullBatch(testdata,numclusters=10,w=int(avgblocksize*1.5))
+            batchend=time.time()
+            print('Batch took: '+str(batchend-minibatchend))
+            tobesaved[variance][i]['true']=rboundaries
+            tobesaved[variance][i]['minibatch']={}
+            tobesaved[variance][i]['minibatch']['boundaries']=[x[0] for x in minibatchboundaries]
+            tobesaved[variance][i]['minibatch']['score'] = boundaryevaluate([x[0] for x in minibatchboundaries],rboundariesrange)
+            tobesaved[variance][i]['minibatch']['time']=minibatchend-minibatchstart
+            tobesaved[variance][i]['batch'] = {}
+            tobesaved[variance][i]['batch']['boundaries'] = batchboundaries
+            tobesaved[variance][i]['batch']['score'] = boundaryevaluate(batchboundaries, rboundariesrange)
+            tobesaved[variance][i]['batch']['time']=batchend-minibatchend
+            pickle.dump(tobesaved,open('Logs/varianceanalysis2','wb'))
+            print('='*50)
+        print('*'*50)
+
+def erroranalysis():
+    starttime = time.time()
+    iterations = 10
+    avgblocksize = 500
+    scalefactor = 1.2
+    variances = [ 0.2,0.4]
+    errors=[0.001,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065]
+    tobesaved = pickle.load(open('Logs/erroreanalysis','rb'))
+    for variance in variances:
+        timer = time.time()
+        print("We're working on variance " + str(variance))
+        tobesaved[variance] = {}
+        for error in errors:
+            tobesaved[variance][error]={}
+            for i in range(iterations):
+                tobesaved[variance][error][i] = {}
+                print('Error: '+str(error))
+                print('Variance '+str(variance))
+                print("We're in iteration " + str(i))
+                testdata, rboundaries = generate_data.toydata2(numblocks=10, noise=error, variance=variance, numfeatures=20, blocksize=avgblocksize)
+                rboundariesrange = [(x, (x - 0.05 * avgblocksize, x + 0.05 * avgblocksize)) for x in rboundaries[1:-1]]
+                minibatchstart = time.time()
+                minibatchboundaries = minibatch(testdata, steplength=2 * scalefactor * avgblocksize, numfeatures=5)
+                minibatchend = time.time()
+                print('Minibatch took: ' + str(minibatchend - minibatchstart))
+                print(minibatchboundaries)
+                batchboundaries = FullBatch(testdata, numclusters=10, w=int(avgblocksize * 1.5))
+                print(batchboundaries)
+                batchend = time.time()
+                print('Batch took: ' + str(batchend - minibatchend))
+                tobesaved[variance][error][i]['true'] = rboundaries
+                tobesaved[variance][error][i]['minibatch'] = {}
+                tobesaved[variance][error][i]['minibatch']['boundaries'] = minibatchboundaries
+                tobesaved[variance][error][i]['minibatch']['score'] = boundaryevaluate(minibatchboundaries, rboundariesrange)
+                tobesaved[variance][error][i]['minibatch']['time'] = minibatchend - minibatchstart
+                tobesaved[variance][error][i]['batch'] = {}
+                tobesaved[variance][error][i]['batch']['boundaries'] = batchboundaries
+                tobesaved[variance][error][i]['batch']['score'] = boundaryevaluate(batchboundaries, rboundariesrange)
+                tobesaved[variance][error][i]['batch']['time'] = batchend - minibatchend
+                pickle.dump(tobesaved, open('Logs/erroreanalysis', 'wb'))
+                print('=' * 50)
+            print('*' * 50)
+
+def clusteringlistexplanation():
+    data,boundaries=generate_data.toydata2()
+    testdata=pca_reduce(data,10)
+    foundboundaries=FullBatch(data,10,750)
+    sfanode=mdp.nodes.SFANode()
+    expansionnode=mdp.nodes.PolynomialExpansionNode(2)
+    testdata=expansionnode.execute(testdata)
+    sfanode.train(testdata)
+    sfanode.stop_training()
+    feature_values=sfanode.execute(testdata,n=5)
+    S=MakeSimilarityMatrix(feature_values,750,config='euc0s')
+    clusterer = cluster.SpectralClustering(n_clusters=10, affinity='precomputed')
+    print('Clustering')
+    clusterlabellist = clusterer.fit_predict(S)
+    clusterlabellist = generate_data.reorder(clusterlabellist)
+    plt.plot(range(len(clusterlabellist)),clusterlabellist,'x')
+    plt.xlabel('time t')
+    plt.ylabel('Clustering label c_i')
+    for point in foundboundaries:
+        plt.scatter([point],[5],marker='x',s=250)
+    for point in boundaries:
+        plt.plot([point,point],[0,10],'r')
+    plt.show()
+
+def toydataexample():
+    coswave=generate_data.coswave(500,1)
+    print(coswave)
+    trianglewave=generate_data.trianglewave(500,1)
+    stepwave=generate_data.stepwave(500,1)
+    zigwave=generate_data.zigzagwave(500,1)
+    rectwave=generate_data.rectwave(500,1)
+    plt.figure()
+    plt.plot(range(len(coswave)),coswave)
+    plt.figure()
+    plt.plot(range(len(trianglewave)),trianglewave)
+    plt.figure()
+    plt.plot(range(len(stepwave)),stepwave)
+    plt.figure()
+    plt.plot(range(len(zigwave)),zigwave)
+    plt.figure()
+    plt.plot(range(len(rectwave)),rectwave)
+    plt.show()
+
+def realdataclusterlists():
+    for i in range(9):
+        sample=i+1
+        data=generate_data.smoldata(sample)
+        groundtruth = generate_data.segmentations['86 0' + str(sample)]
+        numclusters=len(groundtruth)
+        print(numclusters)
+        testdata=pca_reduce(data,10)
+        sfanode=mdp.nodes.SFANode()
+        expansionnode=mdp.nodes.PolynomialExpansionNode(2)
+        testdata=expansionnode.execute(testdata)
+        sfanode.train(testdata)
+        sfanode.stop_training()
+        feature_values=sfanode.execute(testdata,n=5)
+        S=MakeSimilarityMatrix(feature_values,1.5*len(data)/numclusters,config='euc0s')
+        clusterer = cluster.SpectralClustering(n_clusters=numclusters, affinity='precomputed')
+        print('Clustering')
+        clusterlabellist = clusterer.fit_predict(S)
+        clusterlabellist = generate_data.reorder(clusterlabellist)
+        plt.figure()
+        plt.plot(range(len(clusterlabellist)),clusterlabellist,'x')
+        plt.xlabel('time t')
+        plt.ylabel('Clustering label c_i')
+    plt.show()
+
+def toydataexample2():
+    data, boundaries = generate_data.toydata2()
+    testdata = pca_reduce(data, 10)
+    foundboundaries = FullBatch(data, 10, 750)
+    sfanode = mdp.nodes.SFANode()
+    expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+    testdata = expansionnode.execute(testdata)
+    sfanode.train(testdata)
+    sfanode.stop_training()
+    feature_values = sfanode.execute(testdata, n=5)
+    S = MakeSimilarityMatrix(feature_values, 750, config='euclid')
+    clusterer = cluster.SpectralClustering(n_clusters=10, affinity='precomputed')
+    print('Clustering')
+    clusterlabellist = clusterer.fit_predict(S)
+    clusterlabellist = generate_data.reorder(clusterlabellist)
+    plt.plot(range(len(clusterlabellist)), clusterlabellist, 'x')
+    plt.xlabel('time t')
+    plt.ylabel('Clustering label c_i')
+    plt.show()
+
+def boundarycomparisons():
+    for i in range(5):
+        data,trueboundaries=generate_data.toydata2(variance=0.3)
+        numclusters=10
+        numfeatures=5
+        timesteps=20
+        sfanode = mdp.nodes.SFANode()
+        expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+        testdata = expansionnode.execute(data)
+        print('After expansion of data, we have dimensions: ' + str(testdata.shape))
+        sfanode.train(testdata)
+        sfanode.stop_training()
+        print('Constructing Feature Vectors')
+        feature_values = sfanode.execute(testdata, n=numfeatures)
+        print('Constructing Simlarity Matrix')
+        S = MakeSimilarityMatrix(feature_values, 750, config='euc0s', numfeatures=numfeatures, timesteps=timesteps)
+
+        clusterer = cluster.SpectralClustering(n_clusters=numclusters, affinity='precomputed')
+        print('Clustering')
+        clusterlabellist = clusterer.fit_predict(S)
+        clusterlabellist = generate_data.reorder(clusterlabellist)
+        boundaries1=find_boundarieskmeans(clusterlabellist,10,250)
+        print(boundaries1)
+        boundaries2=generate_data.findbestcenterapproach(clusterlabellist,10,500)
+        print(boundaries2)
+        plt.figure()
+        plt.xlabel('time t')
+        plt.ylabel('Clustering label c_i')
+        plt.plot(range(len(clusterlabellist)),clusterlabellist,'x')
+        for point in boundaries1:
+            plt.scatter(point,3.5,marker='x',s=250)
+        for point in boundaries2:
+            plt.scatter(point[0],6.5,marker='.',s=250)
+        for boundary in trueboundaries:
+            plt.plot([boundary,boundary],[0,10],'r')
+    plt.show()
+
+def smoltest6():
+    plt.figure()
+    reducenumber = 20
+    groundtruth = generate_data.segmentations['86 0' + str(8)]
+    numclusters = len(groundtruth)
+    haca = generate_data.othersegmentationstuff[8 - 1]
+    sfanode = mdp.nodes.SFANode()
+    expected_windowsize = 1000 / 4  # specific value for sample 8
+    euclidmatrix,fulldtwmatrix,hybridmatrix,euclidwith0s,dtwwith0s=generatematrices()
+    matrices=[dtwwith0s]
+    for i,distmatrix in enumerate(matrices):
+        plt.subplot(len(matrices), 1, 1 * i + 1)
+        clusterer = cluster.SpectralClustering(n_clusters=numclusters, affinity='precomputed')
+        binarylist = clusterer.fit_predict(distmatrix)
+        binarylist = generate_data.reorder(binarylist)
+        binarylist=generate_data.reorder(binarylist)
+        binarylist=generate_data.clusteringheuristic1(binarylist,expected_windowsize)
+        binarylist=generate_data.clusteringheuristic2(binarylist,expected_windowsize,distmatrix)
+        boundary1=generate_data.findbestcenterapproach(binarylist,numclusters,expected_windowsize)
+        boundary2=generate_data.find_boundarieskmeans(binarylist,numclusters,expected_windowsize/2)
+        boundary12=[x[0] for x in boundary1[1:]]
+        clusters1=makeclustersfromboundaries(binarylist,boundary12)
+        clusters2=makeclustersfromboundaries(binarylist,boundary2)
+        evaloneone=clusterevaluation1(binarylist,clusters1)
+        evaltwoone=clusterevaluation1(binarylist,clusters2)
+        evalonetwo=clusterevaluation2(binarylist,clusters1,distmatrix)
+        evaltwotwo=clusterevaluation2(binarylist,clusters2,distmatrix)
+        plt.scatter(range(len(binarylist)), binarylist, marker='x')
+        for i,boundary in enumerate(boundary1):
+            plt.scatter(boundary[0],[6.5],marker='.',c='b',s=250)
+        for i,boundary in enumerate(boundary2):
+            plt.scatter(boundary,[3.5],marker='x',c='b',s=250)
+        groundtruth2 = [point['middle']/4. for point in groundtruth]
+        for point in groundtruth2:
+            plt.plot([point, point], [0, 11],'r')
+    plt.show()
+
+def clustertest():
+    data,tboundaries=generate_data.toydata2()
+    clusters=[7,8,9,10,11,12,13,14]
+    plt.figure()
+    for i,numclusters in enumerate(clusters):
+        plt.subplot(4,2,i+1)
+        testdata = pca_reduce(data, 10)
+        sfanode = mdp.nodes.SFANode()
+        expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+        testdata = expansionnode.execute(testdata)
+        print('After expansion of data, we have dimensions: ' + str(testdata.shape))
+        sfanode.train(testdata)
+        sfanode.stop_training()
+        print('Constructing Feature Vectors')
+        feature_values = sfanode.execute(testdata, n=5)
+        print('Constructing Simlarity Matrix')
+        S = MakeSimilarityMatrix(feature_values, 750, config='euc0s', numfeatures=5, timesteps=20)
+
+        clusterer = cluster.SpectralClustering(n_clusters=numclusters, affinity='precomputed')
+        print('Clustering')
+        clusterlabellist = clusterer.fit_predict(S)
+        clusterlabellist = generate_data.reorder(clusterlabellist)
+        clusterlabellist = clusteringheuristic1(clusterlabellist, int(750))
+        clusterlabellist = clusteringheuristic2(clusterlabellist, int(750), S)
+        print('Finding boundaries')
+        boundaries = find_boundarieskmeans(clusterlabellist, numclusters, 750 / 2)
+        plt.title(str(numclusters)+'/10')
+        for point in tboundaries:
+            plt.plot([point,point],[0,numclusters],'b')
+        for point in boundaries:
+            plt.scatter(point,numclusters/2,marker='x',s=250,c='red')
+        plt.plot(range(len(clusterlabellist)),clusterlabellist,'x')
+    plt.show()
+
+def comparesegmentations(sample,stuff=[]):
+    segmentstocompare=stuff
+    segmentstocompare.append((generate_data.othersegmentationstuff[sample-1],'Boundaries found by Efficient Unsupervised'))
+    segmentstocompare.append((generate_data.acaboundaries['aca'][sample-1],'Boundaries found by ACA'))
+    segmentstocompare.append((generate_data.acaboundaries['haca'][sample-1],'Boundaries found by HACA'))
+    segmentstocompare.append((generate_data.cmuboundaries[sample],'Groundtruth according to CMU'))
+    showsegmentation(segmentstocompare,1)
+
+def findbestminibatch(sample):
+    data=generate_data.smoldata(sample)
+    groundtruth=[x/4 for x in generate_data.cmuboundaries[sample]]
+    groundtruthranges=[]
+    segcompare=[]
+    for point in generate_data.segmentations['86 0'+str(sample)][:-1]:
+        groundtruthranges.append((point['middle']/4,(point['lower']/4,point['upper']/4)))
+    windowsize=[200,250,300,350,400,450,500,550,600,650,700]
+    boundaries={}
+    for size in windowsize:
+        boundaries[size]={}
+        boundaries[size]['boundaries']=[1]+minibatch(data,size)+[groundtruth[-1]]
+        boundaries[size]['score']=boundaryevaluate(boundaries[size]['boundaries'],groundtruthranges)
+        segcompare.append((boundaries[size]['boundaries'],str(size)+' Score: '+str(boundaries[size]['score'][0])+'Missed: '+str(boundaries[size]['score'][1])))
+    comparesegmentations(1,segcompare)
+    print(boundaries)
+
+def algcomparison():
+    for i in range(9):
+        segmentstocompare=[]
+        sample=i+1
+
+        groundtruth = [x / 4 for x in generate_data.cmuboundaries[sample]]
+        groundtruthranges = [(1,(0,2))]
+        segcompare = []
+        segmentations=generate_data.segmentations['86 0'+str(sample)]
+        for point in generate_data.segmentations['86 0' + str(sample)]:
+            groundtruthranges.append((point['middle'] / 4, (point['lower'] / 4, point['upper'] / 4)))
+        print(groundtruthranges)
+        print(groundtruth)
+        averagetruthranges=findtruthranges()
+        acatruthranges=[]
+        for j,point in enumerate(generate_data.acaboundaries['truth'][sample-1][1:-1]):
+            acatruthranges.append((point,(point-averagetruthranges[i]/10,point+averagetruthranges[i]/10)))
+        fullbatchboundaries=[1]+FullBatch(generate_data.smoldata(sample),len(segmentations),(groundtruth[-1]/len(segmentations))*1.5)+[groundtruth[-1]]
+        minibatchboundaries=[1]+minibatch(generate_data.smoldata(sample),bestminibatchsizes[i])+[groundtruth[-1]]
+        fullbatchscore=boundaryevaluate(fullbatchboundaries,groundtruthranges)
+        minibatchscore=boundaryevaluate(minibatchboundaries,groundtruthranges)
+        efficientscore=boundaryevaluate(generate_data.othersegmentationstuff[sample-1],groundtruthranges)
+        acascore=boundaryevaluate(generate_data.acaboundaries['aca'][sample-1],acatruthranges)
+        hacascore=boundaryevaluate(generate_data.acaboundaries['haca'][sample-1],acatruthranges)
+        segmentstocompare.append((fullbatchboundaries,'Boundaries found by BatchSFAS  Score: '+str(fullbatchscore[0])+' Missed: '+str(fullbatchscore[1])))
+        segmentstocompare.append((minibatchboundaries,'Boundaries found by minibatchSFAS Score: '+str(minibatchscore[0])+' Missed: '+str(minibatchscore[1])))
+        segmentstocompare.append((generate_data.othersegmentationstuff[sample - 1], 'Boundaries found by Efficient Unsupervised Score: '+str(efficientscore[0])+' Missed: '+str(efficientscore[1])))
+        segmentstocompare.append((generate_data.acaboundaries['aca'][sample - 1], 'Boundaries found by ACA  Score: '+str(acascore[0])+' Missed: '+str(acascore[1])))
+        segmentstocompare.append((generate_data.acaboundaries['haca'][sample - 1], 'Boundaries found by HACA  Score: '+str(hacascore[0])+' Missed: '+str(hacascore[1])))
+        comparetotruth((groundtruthranges,'Ground truth according to CMU'),segmentstocompare)
+    plt.show()
+bestminibatchsizes=[400,450,450,450,450,450,550,450,550]
+
+def findtruthranges():
+    averageranges=[]
+    for i in range(9):
+        difference=0
+        count=0
+        sample=i+1
+        for point in generate_data.segmentations['86 0' + str(sample)][:-1]:
+            difference+=point['upper']-point['lower']
+            count+=1
+        averageranges.append(float(difference)/count)
+    return averageranges
+
+def erroranalysisdata():
+    starttime = time.time()
+    iterations = 1
+    avgblocksize = 500
+    scalefactor = 1.2
+    variances = [ 0,0.2,0.4]
+    errors=[0.001,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065]
+    tobesaved = pickle.load(open('Logs/erroreanalysis','rb'))
+    for i,variance in enumerate(variances):
+        timer = time.time()
+        print("We're working on variance " + str(variance))
+        tobesaved[variance] = {}
+        for j,error in enumerate(errors):
+            tobesaved[variance][error]={}
+            testdata, rboundaries = generate_data.toydata2(numblocks=10, noise=error, variance=variance, numfeatures=20, blocksize=avgblocksize)
+            np.savetxt('Logs/erroranalysisdata' + str(i)+str(j), testdata)
+            np.savetxt('Logs/erroranalysisdataboundaries'+str(i)+str(j),rboundaries)
+            sfanode = mdp.nodes.SFANode()
+            expansionnode = mdp.nodes.PolynomialExpansionNode(2)
+            testdata = expansionnode.execute(testdata)
+            sfanode.train(testdata)
+            sfanode.stop_training()
+            feature_values = sfanode.execute(testdata, n=5)
+            np.savetxt('Logs/erroranalysisfeaturedata'+str(i)+str(j),feature_values)
+
+def nosfatest():
+    batches=[]
+    nosfabatches=[]
+    nosfabatches2=[]
+    nosfabatches3=[]
+    minis=[]
+    nosfaminis=[]
+    nosfaminis2=[]
+    nosfaminis3=[]
+    for i in range(3):
+        sample=i+1
+        data = generate_data.smoldata(sample)
+        groundtruth = [x / 4 for x in generate_data.cmuboundaries[sample]]
+        groundtruthranges = []
+        segcompare = []
+        segmentations = generate_data.segmentations['86 0' + str(sample)]
+        for point in generate_data.segmentations['86 0' + str(sample)][:-1]:
+            groundtruthranges.append((point['middle'] / 4, (point['lower'] / 4, point['upper'] / 4)))
+        truthranges=groundtruthranges
+        w=(groundtruth[-1] / len(segmentations))
+        print(w)
+        batchboundaries =[0]+ FullBatch(data, 10, w)
+        sfafull =[0]+ noSFAFullBatch(data, 10, w)
+        sfafull2=[0]+noSFAFullBatch2(data,10,w)
+        sfafull3=[0]+noSFAFullBatch3(data,10,w)
+        mini =[0]+ minibatch(data, 450)
+        nosfamini =[0]+ noSFAminibatch(data, 450)
+        nosfamini2 =[0]+ noSFAminibatch2(data, 450)
+        nosfamini3 =[0]+ noSFAminibatch3(data, 450)
+        batchscore=boundaryevaluate(batchboundaries,truthranges)
+        batches.append(batchscore)
+        sfafullscore=boundaryevaluate(sfafull,truthranges)
+        nosfabatches.append(sfafullscore)
+        sfafullscore2=boundaryevaluate(sfafull2,truthranges)
+        nosfabatches2.append(sfafullscore2)
+        sfafullscore3=boundaryevaluate(sfafull3,truthranges)
+        nosfabatches3.append(sfafullscore3)
+        miniscore=boundaryevaluate(mini,truthranges)
+        minis.append(miniscore)
+        nosfaminiscore=boundaryevaluate(nosfamini,truthranges)
+        nosfaminis.append(nosfaminiscore)
+        nosfaminiscore2=boundaryevaluate(nosfamini2,truthranges)
+        nosfaminis2.append(nosfaminiscore2)
+        nosfaminiscore3=boundaryevaluate(nosfamini3,truthranges)
+        nosfaminis3.append(nosfaminiscore3)
+    print('Full Batch')
+    print(batches)
+    print('PCA instead of SFA')
+    print(nosfabatches)
+    print('Take first 5')
+    print(nosfabatches2)
+    print('Take all values')
+    print(nosfabatches2)
+    print('minibatch')
+    print(minis)
+    print('pca instead of SFA')
+    print(nosfaminis)
+    print('take first 5')
+    print(nosfaminis2)
+    print('take all values')
+    print(nosfaminis3)
+
+def acasfatest():
+    acascores=[]
+    realacascores=[]
+    featureacascores=[]
+    hacascores=[]
+    realhacascores=[]
+    featurehacascores=[]
+    for i in range(9):
+        sample=i+1
+        acaboundary=generate_data.acaboundaries['aca'][sample-1]
+        realacaboundary=generate_data.realacaboundaries['aca'][sample-1]
+        featureacaboundary=generate_data.featureacaboundaries['aca'][sample-1]
+        hacaboundary=generate_data.acaboundaries['haca'][sample-1]
+        realhacaboundary=generate_data.realacaboundaries['haca'][sample-1]
+        featurehacaboundary=generate_data.featureacaboundaries['haca'][sample-1]
+        acatruthranges = []
+        averagetruthranges=findtruthranges()
+        for j, point in enumerate(generate_data.acaboundaries['truth'][sample - 1][1:-1]):
+            acatruthranges.append((point, (point - averagetruthranges[i] / 10, point + averagetruthranges[i] / 10)))
+        acascores.append(boundaryevaluate(acaboundary,acatruthranges))
+        realacascores.append(boundaryevaluate(realacaboundary,acatruthranges))
+        featureacascores.append(boundaryevaluate(featureacaboundary,acatruthranges))
+        hacascores.append(boundaryevaluate(acaboundary,acatruthranges))
+        realhacascores.append(boundaryevaluate(realhacaboundary,acatruthranges))
+        featurehacascores.append(boundaryevaluate(featurehacaboundary,acatruthranges))
+    print(acascores)
+    print(np.mean([x[0] for x in acascores]))
+    print(np.mean([x[1] for x in acascores]))
+    print(realacascores)
+    print(np.mean([x[0] for x in realacascores]))
+    print(np.mean([x[1] for x in realacascores]))
+    print(featureacascores)
+    print(np.mean([x[0] for x in featureacascores]))
+    print(np.mean([x[1] for x in featureacascores]))
+    print('*'*50)
+    print(hacascores)
+    print(np.mean([x[0] for x in hacascores]))
+    print(np.mean([x[1] for x in hacascores]))
+    print(realhacascores)
+    print(np.mean([x[0] for x in realhacascores]))
+    print(np.mean([x[1] for x in realhacascores]))
+    print(featurehacascores)
+    print(np.mean([x[0] for x in featurehacascores]))
+    print(np.mean([x[1] for x in featurehacascores]))
+
+def erroranalysisreworked():
+    stuff = pickle.load(open('Logs/erroreanalysis', 'rb'))
+    for key in stuff.keys():
+        dic = stuff[key]
+        for key2 in dic.keys():
+            for key3 in dic[key2]:
+                run = dic[key2][key3]
+                truthranges = [(x, (x - 25, x + 25)) for x in run['true']]
+                run['batch']['boundaries'] = [0] + run['batch']['boundaries'] + [run['true'][-1]]
+                run['minibatch']['boundaries'] = [0] + run['minibatch']['boundaries'] + [run['true'][-1]]
+                run['batch']['score'] = boundaryevaluate(run['batch']['boundaries'], truthranges)
+                run['minibatch']['score'] = boundaryevaluate(run['minibatch']['boundaries'], truthranges)
+    pickle.dump(stuff, open('Logs/erroranalysiscleaned', 'wb'))
+
+def erroranalysisextra():
+    stuff = pickle.load(open('Logs/erroranalysiscleaned', 'rb'))
+    stuff2={}
+    for variance in stuff.keys():
+        stuff2[variance]={}
+        for error in stuff[variance].keys():
+            stuff2[variance][error]={}
+            batchscores = []
+            minibatchscores = []
+            batchmisses = []
+            minibatchmisses = []
+            for run in stuff[variance][error].keys():
+                batchscores.append(stuff[variance][error][run]['batch']['score'][0])
+                batchmisses.append(stuff[variance][error][run]['batch']['score'][1])
+                minibatchscores.append(stuff[variance][error][run]['minibatch']['score'][0])
+                minibatchmisses.append(stuff[variance][error][run]['minibatch']['score'][1])
+            print('=' * 50)
+            print('Variance : ' + str(variance) + ' Error ' + str(error))
+            print('Batch')
+            print(batchscores)
+            print('Mean : ' + str(np.mean(batchscores)) + ' Standard deviation : ' + str(np.std(batchscores)))
+            print(batchmisses)
+            print('Mean : ' + str(np.mean(batchmisses)) + ' Standard deviation : ' + str(np.std(batchmisses)))
+            print('MiniBatch')
+            print(minibatchscores)
+            print('Mean : ' + str(np.mean(minibatchscores)) + ' Standard deviation : ' + str(np.std(minibatchscores)))
+            print(minibatchmisses)
+            print('Mean : ' + str(np.mean(minibatchmisses)) + ' Standard deviation : ' + str(np.std(minibatchmisses)))
+            stuff2[variance][error]['batchscores']=(batchscores,np.mean(batchscores),np.std(batchscores))
+            stuff2[variance][error]['batchmisses']=(batchmisses,np.mean(batchmisses),np.std(batchmisses))
+            stuff2[variance][error]['minibatchscores'] = (minibatchscores,np.mean(minibatchscores),np.std(minibatchscores))
+            stuff2[variance][error]['minibatchmisses'] = (minibatchmisses,np.mean(minibatchmisses),np.std(batchmisses))
+    pickle.dump(stuff2,open('Logs/erroranalysisanalysed','wb'))
+
+def acawithwithoutsfa():
+    averagetruthranges = findtruthranges()
+    acascores = []
+    hacascores=[]
+    featureacascores = []
+    featurehacascores=[]
+    treducedsfafiveacascores =[]
+    treducedsfafivehacascores=[]
+    treducedsfatwentyhacascores=[]
+    treducedsfatwentyacascores=[]
+    treducedsfafullhacascores=[]
+    treducedsfafullacascores=[]
+    realacascores=[]
+    realhacascores=[]
+    for i in range(9):
+        sample=i+1
+        acatruthranges = []
+        for j, point in enumerate(generate_data.acaboundaries['truth'][sample - 1][1:-1]):
+            acatruthranges.append((point, (point - averagetruthranges[i] / 10, point + averagetruthranges[i] / 10)))
+        featureacatruthranges = []
+        for j, point in enumerate(generate_data.featureacaboundaries['truth'][sample - 1][1:-1]):
+            featureacatruthranges.append((point, (point - averagetruthranges[i] / 10, point + averagetruthranges[i] / 10)))
+        realacatruthranges = []
+        for j, point in enumerate(generate_data.realacaboundaries['truth'][sample - 1][1:-1]):
+            realacatruthranges.append((point, (point - averagetruthranges[i] / 10, point + averagetruthranges[i] / 10)))
+        treducedfafivetruthranges = []
+        for j, point in enumerate(generate_data.treducedsfafive['truth'][sample - 1][1:-1]):
+            treducedfafivetruthranges.append((point, (point - averagetruthranges[i] / 10, point + averagetruthranges[i] / 10)))
+        treducedfatwentytruthranges = []
+        for j, point in enumerate(generate_data.treducedsfatwenty['truth'][sample - 1][1:-1]):
+            treducedfatwentytruthranges.append((point, (point - averagetruthranges[i] / 10, point + averagetruthranges[i] / 10)))
+        treducedfafulltruthranges = []
+        for j, point in enumerate(generate_data.treducedsfafull['truth'][sample - 1][1:-1]):
+            treducedfafulltruthranges.append((point, (point - averagetruthranges[i] / 10, point + averagetruthranges[i] / 10)))
+
+        acascore=boundaryevaluate(generate_data.acaboundaries['aca'][sample-1],acatruthranges)
+        acascores.append(acascore)
+        hacascore = boundaryevaluate(generate_data.acaboundaries['haca'][sample - 1], acatruthranges)
+        hacascores.append(hacascore)
+        featureacascore = boundaryevaluate(generate_data.featureacaboundaries['aca'][sample - 1], featureacatruthranges)
+        featureacascores.append(featureacascore)
+        featurehacascore = boundaryevaluate(generate_data.acaboundaries['haca'][sample - 1], featureacatruthranges)
+        featurehacascores.append(featurehacascore)
+        treducedsfafivescore = boundaryevaluate(generate_data.treducedsfafive['aca'][sample - 1], treducedfafivetruthranges)
+        treducedsfafiveacascores.append(treducedsfafivescore)
+        treducedsfafivehacascore = boundaryevaluate(generate_data.treducedsfafive['haca'][sample - 1], treducedfafivetruthranges)
+        treducedsfafivehacascores.append(treducedsfafivehacascore)
+        treducedsfafullhacascore = boundaryevaluate(generate_data.treducedsfafull['haca'][sample - 1], treducedfafulltruthranges)
+        treducedsfafullhacascores.append(treducedsfafullhacascore)
+        treducedsfatwentyhacascore = boundaryevaluate(generate_data.treducedsfatwenty['haca'][sample - 1], treducedfatwentytruthranges)
+        treducedsfatwentyhacascores.append(treducedsfatwentyhacascore)
+        treducedsfafullacascore = boundaryevaluate(generate_data.treducedsfafull['aca'][sample - 1], treducedfafulltruthranges)
+        treducedsfafullacascores.append(treducedsfafullacascore)
+        treducedsfatwentyacascore = boundaryevaluate(generate_data.treducedsfatwenty['aca'][sample - 1], treducedfatwentytruthranges)
+        treducedsfatwentyacascores.append(treducedsfatwentyacascore)
+        realacascore=boundaryevaluate(generate_data.realacaboundaries['aca'][sample-1],realacatruthranges)
+        realacascores.append(realacascore)
+        realhacascore = boundaryevaluate(generate_data.realacaboundaries['haca'][sample - 1], realacatruthranges)
+        realhacascores.append(realhacascore)
+    print('Normal ACA')
+    print(acascores)
+    print(np.mean([x[0] for x in acascores]))
+    print(np.mean([x[1] for x in acascores]))
+    print('five treduced ACA')
+    print(treducedsfafiveacascores)
+    print(np.mean([x[0] for x in treducedsfafiveacascores]))
+    print(np.mean([x[1] for x in treducedsfafiveacascores]))
+    print('twenty treduced ACA')
+    print(treducedsfatwentyacascores)
+    print(np.mean([x[0] for x in treducedsfatwentyacascores]))
+    print(np.mean([x[1] for x in treducedsfatwentyacascores]))
+    print('full treduced ACA')
+    print(treducedsfafullacascores)
+    print(np.mean([x[0] for x in treducedsfafullacascores]))
+    print(np.mean([x[1] for x in treducedsfafullacascores]))
+    print('Before treduction')
+    print(featureacascores)
+    print(np.mean([x[0] for x in featureacascores]))
+    print(np.mean([x[1] for x in featureacascores]))
+    print('Before treduction')
+    print(realacascores)
+    print(np.mean([x[0] for x in realacascores]))
+    print(np.mean([x[1] for x in realacascores]))
+    print('*'*50)
+    print('normal haca')
+    print(hacascores)
+    print(np.mean([x[0] for x in hacascores]))
+    print(np.mean([x[1] for x in hacascores]))
+    print('treduced haca')
+    print(treducedsfafivehacascores)
+    print(np.mean([x[0] for x in treducedsfafivehacascores]))
+    print(np.mean([x[1] for x in treducedsfafivehacascores]))
+    print('treduced haca')
+    print(treducedsfatwentyhacascores)
+    print(np.mean([x[0] for x in treducedsfatwentyhacascores]))
+    print(np.mean([x[1] for x in treducedsfatwentyhacascores]))
+    print('treduced haca')
+    print(treducedsfafullhacascores)
+    print(np.mean([x[0] for x in treducedsfafullhacascores]))
+    print(np.mean([x[1] for x in treducedsfafullhacascores]))
+    print('feature haca')
+    print(featurehacascores)
+    print(np.mean([x[0] for x in featurehacascores]))
+    print(np.mean([x[1] for x in featurehacascores]))
+    print('real haca')
+    print(realhacascores)
+    print(np.mean([x[0] for x in realhacascores]))
+    print(np.mean([x[1] for x in realhacascores]))
+
+def truetoyacawithwithoutsfa():
+    acascores=[]
+    hacascores=[]
+    featureacascores=[]
+    featurehacascores=[]
+    for i in range(9):
+        sample=i+1
+        truthranges = []
+        for j, point in enumerate(generate_data.truetoydata['truth'][sample - 1][1:-1]):
+            truthranges.append((point, (point - 25, point + 25)))
+        acascore = boundaryevaluate(generate_data.truetoydata['aca'][sample - 1], truthranges)
+        acascores.append(acascore)
+        hacascore = boundaryevaluate(generate_data.truetoydata['haca'][sample - 1], truthranges)
+        hacascores.append(hacascore)
+        featureacascore = boundaryevaluate(generate_data.truetoydatafeatures['aca'][sample - 1], truthranges)
+        featureacascores.append(featureacascore)
+        featurehacascore = boundaryevaluate(generate_data.truetoydatafeatures['haca'][sample - 1], truthranges)
+        featurehacascores.append(featurehacascore)
+    print('normal aca')
+    print(acascores)
+    print(np.mean([x[0] for x in acascores]))
+    print(np.mean([x[1] for x in acascores]))
+    print('normal haca')
+    print(hacascores)
+    print(np.mean([x[0] for x in hacascores]))
+    print(np.mean([x[1] for x in hacascores]))
+    print('normal featureaca')
+    print(featureacascores)
+    print(np.mean([x[0] for x in featureacascores]))
+    print(np.mean([x[1] for x in featureacascores]))
+    print('normal featurehaca')
+    print(featurehacascores)
+    print(np.mean([x[0] for x in featurehacascores]))
+    print(np.mean([x[1] for x in featurehacascores]))
+
+
+def algcomparison2():
+    for i in range(9):
+        segmentstocompare=[]
+        sample=i+1
+        data=np.loadtxt('logs/truetoydata'+str(sample))
+        boundaries=np.loadtxt('logs/truetoydataboundaries'+str(sample))
+        truthranges=[(1,(0,2))]
+        for point in boundaries[1:]:
+            truthranges.append((point,(point-25,point+25)))
+        truthranges=(truthranges,'Ground truth')
+        acaboundaries=generate_data.truetoydata['aca'][sample-1]
+        hacaboundaries=generate_data.truetoydata['haca'][sample-1]
+        batchboundaries=[0]+FullBatch(data,10,750)+[boundaries[-1]]
+        minibatchboundaries=[0]+minibatch(data,1000)+[boundaries[-1]]
+        print(minibatchboundaries)
+        print(batchboundaries)
+        segmentstocompare=[(acaboundaries,'Aca Boundaries'),(hacaboundaries,'HACA Boundaries'),(batchboundaries,'Batch SFAS'),(minibatchboundaries,'Mini Batch boundaries')]
+        comparetotruth(truthranges,segmentstocompare)
+
+    plt.show()
+
 #first_attempt()
 #second_attempt()
 #minibatchtest()
@@ -1107,3 +2078,32 @@ def smoltest4():
 #smoltest2()
 #smoldtwtest()
 #smoltest3()
+#generate_features()
+#smoltest5()
+#windowsizetest4()
+#toydatapaper()
+#varianceanalysis()
+#erroranalysis()
+#toydataexample()
+#realdataclusterlists()
+#toydataexample2()
+#boundarycomparisons()
+#smoltest6()
+#boxtest()
+#clustertest()
+#findbestminibatch(9)
+#algcomparison()
+#erroranalysisdata()
+#acasfatest()
+#erroranalysisextra()
+# acawithwithoutsfa()
+# truetoyacawithwithoutsfa()
+algcomparison2()
+
+
+
+
+
+
+
+
